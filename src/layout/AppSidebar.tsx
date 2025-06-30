@@ -47,6 +47,11 @@ const navItems: NavItem[] = [
     name: "Guest Info",
     path: "/guest-info",
   },
+  {
+    icon: <TableIcon />,
+    name: "In/Out Movements",
+    path: "/in-out",
+  },
   // {
   //   icon: <CalenderIcon />,
   //   name: "Calendar",
