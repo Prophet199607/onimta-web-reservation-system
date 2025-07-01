@@ -17,7 +17,7 @@ export default function RoomReservation() {
   const [isChecked, setIsChecked] = useState(false);
   const [activeTab, setActiveTab] = useState("room");
 
-  const bookingStatuseOptions = [
+  const bookingStatusOptions = [
     { value: "On Arrival", label: "On Arrival" },
     { value: "Arrived", label: "Arrived" },
   ];
@@ -126,7 +126,7 @@ export default function RoomReservation() {
                       Booking Status
                     </label>
                     <Select
-                      options={bookingStatuseOptions}
+                      options={bookingStatusOptions}
                       placeholder="Select Booking Status"
                       className="flex-1"
                       onChange={handleTypeChange}

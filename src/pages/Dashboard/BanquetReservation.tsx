@@ -17,7 +17,7 @@ export default function BanquetReservation() {
   const [isChecked, setIsChecked] = useState(false);
   const [activeTab, setActiveTab] = useState("banquet");
 
-  const bookingStatuseOptions = [
+  const bookingStatusOptions = [
     { value: "On Arrival", label: "On Arrival" },
     { value: "Arrived", label: "Arrived" },
   ];
@@ -126,7 +126,7 @@ export default function BanquetReservation() {
                       Booking Status
                     </label>
                     <Select
-                      options={bookingStatuseOptions}
+                      options={bookingStatusOptions}
                       placeholder="Select Booking Status"
                       className="flex-1"
                       onChange={handleTypeChange}
