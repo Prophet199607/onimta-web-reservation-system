@@ -38,7 +38,7 @@ export default function GuestInfo() {
     { value: "", label: "" },
   ];
 
-  const handleTypeChange = (value: string) => {};
+  const handleTypeChange = (_value: string) => {};
 
   return (
     <>
