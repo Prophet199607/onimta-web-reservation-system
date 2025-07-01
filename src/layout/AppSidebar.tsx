@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "Master Entry",
-    icon: <ListIcon />,
+    icon: <PageIcon />,
     subItems: [
       { name: "Room Type", path: "/room-types", pro: false },
       { name: "Event Type", path: "/event-types", pro: false },
@@ -52,11 +52,21 @@ const navItems: NavItem[] = [
     name: "In/Out Movements",
     path: "/in-out",
   },
-  // {
-  //   icon: <CalenderIcon />,
-  //   name: "Calendar",
-  //   path: "/calendar",
-  // },
+  {
+    icon: <ListIcon />,
+    name: "Room Reservation",
+    path: "/room-reservation",
+  },
+  {
+    icon: <ListIcon />,
+    name: "Banquet Reservation",
+    path: "/banquet-reservation",
+  },
+  {
+    icon: <CalenderIcon />,
+    name: "Calendar",
+    path: "/calendar",
+  },
   // {
   //   icon: <UserCircleIcon />,
   //   name: "User Profile",

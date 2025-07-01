@@ -26,6 +26,8 @@ import SetupStyleTypes from "./pages/Dashboard/SetupStyleTypes";
 import TravelAgent from "./pages/Dashboard/TravelAgent";
 import GuestInfo from "./pages/Dashboard/GuestInfo";
 import InOut from "./pages/Dashboard/InOut";
+import RoomReservation from "./pages/Dashboard/RoomReservation";
+import BanquetReservation from "./pages/Dashboard/BanquetReservation";
 
 export default function App() {
   return (
@@ -45,6 +47,11 @@ export default function App() {
 
             <Route path="/guest-info" element={<GuestInfo />} />
             <Route path="/in-out" element={<InOut />} />
+            <Route path="/room-reservation" element={<RoomReservation />} />
+            <Route
+              path="/banquet-reservation"
+              element={<BanquetReservation />}
+            />
 
             {/* Dashboard Pages */}
 
