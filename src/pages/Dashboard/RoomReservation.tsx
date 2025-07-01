@@ -42,15 +42,32 @@ export default function RoomReservation() {
         description="Manage room reservation information"
       />
 
-      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 md:px-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-        <div className="mx-auto w-full max-w-[1500px]">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-              Room Reservation
-            </h3>
-          </div>
+      {/* Breadcrumb and Header container */}
+      <div className="flex items-center justify-between mb-6">
+        {/* Breadcrumb */}
+        <nav>
+          <ol className="flex items-center space-x-2 text-sm">
+            <li>
+              <a href="/" className="text-gray-500 hover:text-gray-700">
+                Dashboard
+              </a>
+            </li>
+            <li className="text-gray-500">/</li>
+            <li className="text-gray-900 dark:text-white">Room Reservation</li>
+          </ol>
+        </nav>
 
+        {/* Header */}
+        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
+          Manage Room Reservation
+        </h3>
+
+        {/* Empty div for equal spacing */}
+        <div className="w-[120px]"></div>
+      </div>
+
+      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 md:px-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
+        <div className="mx-auto w-full max-w-[1500px]">
           <form className="space-y-4">
             {/* Guest Information Section */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

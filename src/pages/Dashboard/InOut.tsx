@@ -26,15 +26,32 @@ export default function InOut() {
         description="Manage guest information"
       />
 
-      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-        <div className="mx-auto w-full max-w-[1400px]">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-              In/Out Movements Information
-            </h3>
-          </div>
+      {/* Breadcrumb and Header container */}
+      <div className="flex items-center justify-between mb-6">
+        {/* Breadcrumb */}
+        <nav>
+          <ol className="flex items-center space-x-2 text-sm">
+            <li>
+              <a href="/" className="text-gray-500 hover:text-gray-700">
+                Dashboard
+              </a>
+            </li>
+            <li className="text-gray-500">/</li>
+            <li className="text-gray-900 dark:text-white">In/Out Movements</li>
+          </ol>
+        </nav>
 
+        {/* Header */}
+        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
+          In/Out Movements Information
+        </h3>
+
+        {/* Empty div for equal spacing */}
+        <div className="w-[120px]"></div>
+      </div>
+
+      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
+        <div className="mx-auto w-full max-w-[1400px]">
           {/* Content */}
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Left side */}
