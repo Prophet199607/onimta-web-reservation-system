@@ -9,7 +9,7 @@ export default function ServiceTypes() {
     { value: "Banquet", label: "Banquet" },
   ];
 
-  const handleTypeChange = (value: string) => {};
+  const handleTypeChange = (_value: string) => {};
 
   return (
     <>
