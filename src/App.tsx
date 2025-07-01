@@ -11,7 +11,6 @@ import Avatars from "./pages/UiElements/Avatars";
 import Buttons from "./pages/UiElements/Buttons";
 import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
-import Calendar from "./pages/Calendar";
 import BasicTables from "./pages/Tables/BasicTables";
 import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
@@ -28,6 +27,7 @@ import GuestInfo from "./pages/Dashboard/GuestInfo";
 import InOut from "./pages/Dashboard/InOut";
 import RoomReservation from "./pages/Dashboard/RoomReservation";
 import BanquetReservation from "./pages/Dashboard/BanquetReservation";
+import Calendar from "./pages/Dashboard/Calendar";
 
 export default function App() {
   return (
@@ -38,6 +38,7 @@ export default function App() {
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
+            {/* Master Entries */}
             <Route path="/room-types" element={<RoomTypes />} />
             <Route path="/event-types" element={<EventTypes />} />
             <Route path="/package-info" element={<PackageInfo />} />
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/setup-styles" element={<SetupStyleTypes />} />
             <Route path="/travel-agent" element={<TravelAgent />} />
 
+            {/* Dashboard Pages */}
             <Route path="/guest-info" element={<GuestInfo />} />
             <Route path="/in-out" element={<InOut />} />
             <Route path="/room-reservation" element={<RoomReservation />} />
@@ -52,8 +54,7 @@ export default function App() {
               path="/banquet-reservation"
               element={<BanquetReservation />}
             />
-
-            {/* Dashboard Pages */}
+            <Route path="/calendar" element={<Calendar />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
