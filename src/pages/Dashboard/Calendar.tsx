@@ -1,22 +1,48 @@
-import { useRef } from "react";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import { DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import React, { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Select from "../../components/form/Select";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
+import ReservationCalendar from "../../components/calender/ReservationCalendar";
+
+// Define the reservation interface
+interface Reservation {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  extendedProps: {
+    status: string;
+    customerName: string;
+    roomName: string;
+    size: string;
+    phone: string;
+    email: string;
+  };
+}
 
 export default function Calendar() {
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [dateRange, setDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null,
+  });
+
   const typeOptions = [
     { value: "All", label: "All" },
     { value: "Room", label: "Room" },
     { value: "Hall", label: "Hall" },
   ];
-  const calendarRef = useRef<FullCalendar>(null);
 
   // Sample reservation data
-  const sampleReservations = [
+  const sampleReservations: Reservation[] = [
     {
       id: "1",
       title: "Conference Room A - John Doe",
@@ -103,55 +129,112 @@ export default function Calendar() {
     },
   ];
 
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    console.log("Date selected:", selectInfo);
-    // You can add logic here to create new reservations
+  // Handle search button click
+  const handleSearch = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    e?.preventDefault();
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (start <= end) {
+        setDateRange({ start, end });
+      } else {
+        alert("End date must be after start date");
+      }
+    } else if (startDate) {
+      // If only start date is provided, show single day
+      const start = new Date(startDate);
+      setDateRange({ start, end: start });
+    } else {
+      // Reset to show current month if no dates selected
+      setDateRange({ start: null, end: null });
+    }
   };
 
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    const event = clickInfo.event;
-    const props = event.extendedProps;
-
+  // Handle calendar cell click
+  const handleCalendarCellClick = (
+    reservation: Reservation | null,
+    date: Date,
+    roomName: string
+  ) => {
     const reservationInfo = document.getElementById("reservationInfo");
     if (reservationInfo) {
-      reservationInfo.innerHTML = `
-        <div class="space-y-2 block flex-shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Customer:</span>
-            <span class="text-sm">${props.customerName}</span>
+      if (reservation) {
+        // Show reservation details
+        reservationInfo.innerHTML = `
+          <div class="space-y-2 block flex-shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Customer:</span>
+              <span class="text-sm">${
+                reservation.extendedProps.customerName
+              }</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Room:</span>
+              <span class="text-sm">${reservation.extendedProps.roomName}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Size:</span>
+              <span class="text-sm">${reservation.extendedProps.size}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Status:</span>
+              <span class="text-sm">${reservation.extendedProps.status}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Phone:</span>
+              <span class="text-sm">${reservation.extendedProps.phone}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Email:</span>
+              <span class="text-sm">${reservation.extendedProps.email}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Start:</span>
+              <span class="text-sm">${new Date(
+                reservation.start
+              ).toLocaleDateString()}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">End:</span>
+              <span class="text-sm">${
+                reservation.end
+                  ? new Date(reservation.end).toLocaleDateString()
+                  : "Same day"
+              }</span>
+            </div>
           </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Room:</span>
-            <span class="text-sm">${props.roomName}</span>
+        `;
+      } else {
+        // Show available slot information
+        reservationInfo.innerHTML = `
+          <div class="space-y-2 block flex-shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Status:</span>
+              <span class="text-sm text-green-600">Available</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Room:</span>
+              <span class="text-sm">${roomName}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Date:</span>
+              <span class="text-sm">${date.toLocaleDateString()}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium">Day:</span>
+              <span class="text-sm">${date.toLocaleDateString("en-US", {
+                weekday: "long",
+              })}</span>
+            </div>
+            <div class="mt-3 text-center">
+              <button class="px-3 py-1 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700">
+                Create Reservation
+              </button>
+            </div>
           </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Size:</span>
-            <span class="text-sm">${props.size}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Status:</span>
-            <span class="text-sm">${props.status}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Phone:</span>
-            <span class="text-sm">${props.phone}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Email:</span>
-            <span class="text-sm">${props.email}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">Start:</span>
-            <span class="text-sm">${event.start?.toLocaleDateString()}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm font-medium">End:</span>
-            <span class="text-sm">${
-              event.end?.toLocaleDateString() || "Same day"
-            }</span>
-          </div>
-        </div>
-      `;
+        `;
+      }
     }
   };
 
@@ -159,16 +242,16 @@ export default function Calendar() {
     console.log("Type changed:", value);
   };
 
-  const Clear = () => {
+  const Clear = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    e?.preventDefault();
+
+    setStartDate("");
+    setEndDate("");
+    setDateRange({ start: null, end: null });
+
     // Clear select option
     const selectElement = document.querySelector("select") as HTMLSelectElement;
     if (selectElement) selectElement.value = "";
-
-    // Clear date inputs
-    const dateInputs = document.querySelectorAll('input[type="date"]');
-    dateInputs.forEach((input: Element) => {
-      (input as HTMLInputElement).value = "";
-    });
 
     // Clear reservation info
     const reservationInfo = document.getElementById("reservationInfo");
@@ -226,28 +309,42 @@ export default function Calendar() {
                       />
                     </div>
 
-                    <div className="mt-4 flex flex-col sm:flex-row sm:gap-4">
-                      <div className="w-full sm:w-1/2">
+                    <div className="mt-6 flex flex-col sm:flex-row sm:gap-4">
+                      <div className="w-full sm:w-1/3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Reservation Date
                         </label>
                         <Input
-                          placeholder="Enter Mobile No"
+                          placeholder="Select start date"
                           required
                           className="w-full"
                           type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
                         />
                       </div>
-                      <div className="w-full sm:w-1/2">
+                      <div className="w-full sm:w-1/3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           End Date
                         </label>
                         <Input
-                          placeholder="Enter Mobile No"
+                          placeholder="Select end date"
                           required
                           className="w-full"
                           type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
                         />
+                      </div>
+                      <div className="w-full sm:w-1/3">
+                        <Button
+                          type="button"
+                          className="w-full sm:w-20 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300 mt-5"
+                          size="md"
+                          onClick={handleSearch}
+                        >
+                          Search
+                        </Button>
                       </div>
                     </div>
 
@@ -321,7 +418,11 @@ export default function Calendar() {
                       <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
                         Reservation Info
                       </h4>
-                      <div className="space-y-2" id="reservationInfo"></div>
+                      <div className="space-y-2" id="reservationInfo">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                          Click on a calendar cell to view reservation details
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -332,27 +433,12 @@ export default function Calendar() {
                 <div className="rounded-lg border border-gray-200 p-4">
                   <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
                     <div className="max-w-full overflow-x-auto">
-                      <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                        <div className="custom-calendar">
-                          <FullCalendar
-                            ref={calendarRef}
-                            plugins={[dayGridPlugin]}
-                            initialView="dayGridMonth"
-                            headerToolbar={{
-                              left: "prev,next",
-                              center: "title",
-                            }}
-                            events={sampleReservations}
-                            selectable={true}
-                            select={handleDateSelect}
-                            eventClick={handleEventClick}
-                            height="auto"
-                            dayMaxEvents={3}
-                            moreLinkClick="popover"
-                            eventDisplay="block"
-                            displayEventTime={false}
-                          />
-                        </div>
+                      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                        <ReservationCalendar
+                          reservations={sampleReservations}
+                          onCellClick={handleCalendarCellClick}
+                          dateRange={dateRange}
+                        />
                       </div>
                     </div>
                   </div>
