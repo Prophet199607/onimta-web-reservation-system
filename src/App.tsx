@@ -35,9 +35,13 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
+          {/* Auth Layout */}
+          <Route path="/" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
+            <Route index path="/dashboard" element={<Home />} />
             {/* Master Entries */}
             <Route path="/room-types" element={<RoomTypes />} />
             <Route path="/event-types" element={<EventTypes />} />
