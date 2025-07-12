@@ -4,67 +4,83 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
+import ConfirmationModal from "../../components/modal/ConfirmationModal";
+import API_BASE_URL from "../../config/api";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showLoadingToast,
+  dismissToast,
+} from "../../components/alert/ToastAlert";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 // Sample room types data
 interface RoomType {
-  id: number;
-  code: string;
-  name: string;
-  remark: string;
+  roomTypeID: number;
+  roomTypeCode: string;
+  description: string;
+  remarks: string;
 }
 
-// Sample data for room types
-const sampleRoomTypes: RoomType[] = [
-  {
-    id: 1,
-    code: "STD",
-    name: "Standard Room",
-    remark: "Basic accommodation with essential amenities",
-  },
-  {
-    id: 2,
-    code: "DLX",
-    name: "Deluxe Room",
-    remark: "Enhanced comfort with premium amenities",
-  },
-  {
-    id: 3,
-    code: "FAM",
-    name: "Family Room",
-    remark: "Large room suitable for families with children",
-  },
-];
-
 export default function RoomTypes() {
+  const [formData, setFormData] = useState({
+    roomTypeCode: "",
+    description: "",
+    remarks: "",
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [roomTypeCode, setRoomTypeCode] = useState("");
-  const [roomTypeName, setRoomTypeName] = useState("");
-  const [remark, setRemark] = useState("");
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<number | null>(
-    null
-  );
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    RoomTypes: null as RoomType | null,
+    loading: false,
+  });
 
   // Define columns for the DataTable
   const roomTypeColumns: Column<RoomType>[] = [
     {
-      key: "code",
+      key: "index",
+      header: "#",
+      width: "20",
+      sortable: false,
+      render: (_value: any, _row: RoomType, index: number) => (
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {index + 1}
+        </span>
+      ),
+    },
+    {
+      key: "roomTypeCode",
       header: "Code",
       sortable: true,
       searchable: true,
       width: "100px",
     },
     {
-      key: "name",
+      key: "description",
       header: "Name",
       sortable: true,
       searchable: true,
     },
     {
-      key: "remark",
+      key: "remarks",
       header: "Remark",
       sortable: true,
       searchable: true,
+    },
+  ];
+
+  const actions = [
+    {
+      label: "Delete",
+      onClick: (row: RoomType) => handleDeleteClick(row),
+      className:
+        "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800",
+      icon: <TrashIcon className="w-4 h-4" />,
     },
   ];
 
@@ -87,31 +103,173 @@ export default function RoomTypes() {
     };
   }, []);
 
-  const handleRowSelect = (roomType: RoomType) => {
-    setRoomTypeCode(roomType.code);
-    setRoomTypeName(roomType.name);
-    setRemark(roomType.remark);
-    setSelectedRoomTypeId(roomType.id);
-    setIsEditMode(true);
+  const fetchRoomTypes = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/RoomType/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRoomTypes(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error("Failed to fetch Room Types");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load room types");
+      setRoomTypes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoomTypes();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (
+      !formData.roomTypeCode.trim() ||
+      !formData.description.trim() ||
+      !formData.remarks.trim()
+    ) {
+      showErrorToast("Please fill in all required fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const loadingToastId = showLoadingToast(
+      editingId ? "Updating Room Type..." : "Adding Room Type..."
+    );
+
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const url = editingId
+        ? `${API_BASE_URL}/api/RoomType/Update/${editingId}`
+        : `${API_BASE_URL}/api/RoomType/add`;
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast(
+          editingId
+            ? "Room Type updated successfully!"
+            : "Room Type added successfully!"
+        );
+        handleClear();
+        fetchRoomTypes();
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Error saving room type:", error);
+      showErrorToast("Room Type Code already exists");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRowClick = (row: RoomType) => {
+    setFormData({
+      roomTypeCode: row.roomTypeCode,
+      description: row.description,
+      remarks: row.remarks,
+    });
+    setEditingId(row.roomTypeID);
     setIsModalOpen(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Form submitted:", {
-      id: selectedRoomTypeId,
-      roomTypeCode,
-      roomTypeName,
-      remark,
+  const handleDeleteClick = (RoomTypes: RoomType) => {
+    setDeleteModal({
+      isOpen: true,
+      RoomTypes,
+      loading: false,
     });
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.RoomTypes) return;
+
+    setDeleteModal((prev) => ({ ...prev, loading: true }));
+
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_BASE_URL}/api/RoomType/Delete/${deleteModal.RoomTypes.roomTypeID}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.details || "Failed to delete room type");
+      }
+
+      showSuccessToast("Room type deleted successfully!");
+
+      setDeleteModal({ isOpen: false, RoomTypes: null, loading: false });
+      fetchRoomTypes();
+    } catch (error) {
+      console.error("Error deleting class:", error);
+      showErrorToast(
+        error instanceof Error ? error.message : "Failed to delete class"
+      );
+      setDeleteModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    if (!deleteModal.loading) {
+      setDeleteModal({ isOpen: false, RoomTypes: null, loading: false });
+    }
+  };
+
   const handleClear = () => {
-    setRoomTypeCode("");
-    setRoomTypeName("");
-    setRemark("");
-    setIsEditMode(false);
-    setSelectedRoomTypeId(null);
+    setFormData({
+      roomTypeCode: "",
+      description: "",
+      remarks: "",
+    });
+    setEditingId(null);
   };
 
   return (
@@ -127,7 +285,10 @@ export default function RoomTypes() {
         <nav>
           <ol className="flex items-center space-x-2 text-sm">
             <li>
-              <a href="/" className="text-gray-500 hover:text-gray-700">
+              <a
+                href="/dashboard"
+                className="text-gray-500 hover:text-gray-700"
+              >
                 Dashboard
               </a>
             </li>
@@ -154,11 +315,12 @@ export default function RoomTypes() {
                   Room Type Code <span className="text-red-500">*</span>
                 </label>
                 <Input
+                  name="roomTypeCode"
+                  value={formData.roomTypeCode}
                   placeholder="Enter room type code"
                   required
                   className="w-full"
-                  value={roomTypeCode}
-                  onChange={(e) => setRoomTypeCode(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -178,46 +340,56 @@ export default function RoomTypes() {
                 Name <span className="text-red-500">*</span>
               </label>
               <Input
+                name="description"
+                value={formData.description}
                 placeholder="Enter Name"
                 required
                 className="w-full"
-                value={roomTypeName}
-                onChange={(e) => setRoomTypeName(e.target.value)}
+                onChange={handleInputChange}
               />
             </div>
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Remark <span className="text-red-500">*</span>
+                remarks <span className="text-red-500">*</span>
               </label>
               <textarea
+                name="remarks"
+                value={formData.remarks}
                 className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 rows={4}
-                placeholder="Enter your remark here"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
+                placeholder="Enter your remarks here"
+                onChange={handleTextAreaChange}
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-4 pt-3 pb-3 justify-center">
               <Button
                 type="submit"
-                className={`w-full sm:w-48 text-white ${
-                  isEditMode
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 border-blue-300"
-                }`}
+                className={`flex-none w-50 ${
+                  editingId
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
                 size="md"
+                disabled={isSubmitting}
               >
-                {isEditMode ? "Update" : "Submit"}
+                {isSubmitting
+                  ? editingId
+                    ? "Updating..."
+                    : "Adding..."
+                  : editingId
+                  ? "Update"
+                  : "Submit"}
               </Button>
               <Button
                 type="button"
-                onClick={handleClear}
                 size="md"
-                className="w-full sm:w-48 bg-gray-500 hover:bg-gray-600 text-white"
+                className="flex-none w-50 bg-gray-500 hover:bg-gray-600 text-white"
+                onClick={handleClear}
+                disabled={isSubmitting}
               >
-                Clear
+                {editingId ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -231,14 +403,34 @@ export default function RoomTypes() {
         title="Select Room Type"
         size="2xl"
       >
+        <ConfirmationModal
+          isOpen={deleteModal.isOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Class"
+          message={
+            deleteModal.RoomTypes
+              ? `Are you sure you want to delete "${deleteModal.RoomTypes.description}"? This action cannot be undone.`
+              : "Are you sure you want to delete this class?"
+          }
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          type="danger"
+          loading={deleteModal.loading}
+        />
+
         <DataTable
-          data={sampleRoomTypes}
+          data={roomTypes}
           columns={roomTypeColumns}
+          loading={loading}
           searchable={true}
           pagination={true}
-          onRowClick={handleRowSelect}
+          sortable={true}
+          pageSize={10}
+          actions={actions}
+          onRowClick={handleRowClick}
           className="border-0 shadow-none"
-          emptyMessage="No items available"
+          emptyMessage="No data available"
         />
       </Modal>
     </>
