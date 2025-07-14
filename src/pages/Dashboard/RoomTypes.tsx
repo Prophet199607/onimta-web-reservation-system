@@ -214,59 +214,49 @@ export default function RoomTypes() {
       />
 
       {/* Breadcrumb and Header container */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         {/* Breadcrumb */}
-        <nav>
-          <ol className="flex items-center space-x-2 text-sm">
+        <nav className="order-2 lg:order-1">
+          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
             <li>
               <a
                 href="/dashboard"
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-500">/</li>
+            <li className="text-gray-500 dark:text-gray-400">/</li>
             <li className="text-gray-900 dark:text-white">Room Types</li>
           </ol>
         </nav>
 
         {/* Header */}
-        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-          Manage Room Types
-        </h3>
+        <div className="order-1 lg:order-2">
+          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
+            Manage Room Types
+          </h3>
+        </div>
 
-        {/* Empty div for equal spacing */}
-        <div className="w-[120px]"></div>
+        {/* Empty div for equal spacing on desktop only */}
+        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end w-full">
-              <div className="w-full sm:flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Type Code <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  name="roomTypeCode"
-                  value={formData.roomTypeCode}
-                  placeholder="Enter room type code"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                <Button
-                  type="button"
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                  size="md"
-                >
-                  New
-                </Button>
-              </div>
+            <div className="flex-1 mt-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Room Type Code <span className="text-red-500">*</span>
+              </label>
+              <Input
+                name="roomTypeCode"
+                value={formData.roomTypeCode}
+                placeholder="Enter room type code"
+                required
+                className="w-full"
+                onChange={handleInputChange}
+              />
             </div>
 
             <div className="flex-1 mt-6">
@@ -297,10 +287,10 @@ export default function RoomTypes() {
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-3 pb-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
               <Button
                 type="submit"
-                className={`flex-none w-50 ${
+                className={`w-50 sm:w-auto sm:min-w-[180px] ${
                   editingId
                     ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
@@ -319,7 +309,7 @@ export default function RoomTypes() {
               <Button
                 type="button"
                 size="md"
-                className="flex-none w-50 bg-gray-500 hover:bg-gray-600 text-white"
+                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleClear}
                 disabled={isSubmitting}
               >
