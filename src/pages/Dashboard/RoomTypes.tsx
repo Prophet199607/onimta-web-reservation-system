@@ -4,7 +4,6 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
-import ConfirmationModal from "../../components/modal/ConfirmationModal";
 import API_BASE_URL from "../../config/api";
 import {
   showSuccessToast,
@@ -12,7 +11,6 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../components/alert/ToastAlert";
-import { TrashIcon } from "@heroicons/react/24/outline";
 
 // Sample room types data
 interface RoomType {
@@ -34,11 +32,6 @@ export default function RoomTypes() {
   const [loading, setLoading] = useState(false);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deleteModal, setDeleteModal] = useState({
-    isOpen: false,
-    RoomTypes: null as RoomType | null,
-    loading: false,
-  });
 
   // Define columns for the DataTable
   const roomTypeColumns: Column<RoomType>[] = [
@@ -71,16 +64,6 @@ export default function RoomTypes() {
       header: "Remark",
       sortable: true,
       searchable: true,
-    },
-  ];
-
-  const actions = [
-    {
-      label: "Delete",
-      onClick: (row: RoomType) => handleDeleteClick(row),
-      className:
-        "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800",
-      icon: <TrashIcon className="w-4 h-4" />,
     },
   ];
 
@@ -212,55 +195,6 @@ export default function RoomTypes() {
     });
     setEditingId(row.roomTypeID);
     setIsModalOpen(false);
-  };
-
-  const handleDeleteClick = (RoomTypes: RoomType) => {
-    setDeleteModal({
-      isOpen: true,
-      RoomTypes,
-      loading: false,
-    });
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteModal.RoomTypes) return;
-
-    setDeleteModal((prev) => ({ ...prev, loading: true }));
-
-    try {
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-      const response = await fetch(
-        `${API_BASE_URL}/api/RoomType/Delete/${deleteModal.RoomTypes.roomTypeID}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.details || "Failed to delete room type");
-      }
-
-      showSuccessToast("Room type deleted successfully!");
-
-      setDeleteModal({ isOpen: false, RoomTypes: null, loading: false });
-      fetchRoomTypes();
-    } catch (error) {
-      console.error("Error deleting class:", error);
-      showErrorToast(
-        error instanceof Error ? error.message : "Failed to delete class"
-      );
-      setDeleteModal((prev) => ({ ...prev, loading: false }));
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    if (!deleteModal.loading) {
-      setDeleteModal({ isOpen: false, RoomTypes: null, loading: false });
-    }
   };
 
   const handleClear = () => {
@@ -403,22 +337,6 @@ export default function RoomTypes() {
         title="Select Room Type"
         size="2xl"
       >
-        <ConfirmationModal
-          isOpen={deleteModal.isOpen}
-          onClose={handleDeleteCancel}
-          onConfirm={handleDeleteConfirm}
-          title="Delete Class"
-          message={
-            deleteModal.RoomTypes
-              ? `Are you sure you want to delete "${deleteModal.RoomTypes.description}"? This action cannot be undone.`
-              : "Are you sure you want to delete this class?"
-          }
-          confirmText="Yes, Delete"
-          cancelText="Cancel"
-          type="danger"
-          loading={deleteModal.loading}
-        />
-
         <DataTable
           data={roomTypes}
           columns={roomTypeColumns}
@@ -427,7 +345,6 @@ export default function RoomTypes() {
           pagination={true}
           sortable={true}
           pageSize={10}
-          actions={actions}
           onRowClick={handleRowClick}
           className="border-0 shadow-none"
           emptyMessage="No data available"
