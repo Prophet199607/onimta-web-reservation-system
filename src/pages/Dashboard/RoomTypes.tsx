@@ -119,12 +119,8 @@ export default function RoomTypes() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !formData.roomTypeCode.trim() ||
-      !formData.description.trim() ||
-      !formData.remarks.trim()
-    ) {
-      showErrorToast("Please fill in all required fields");
+    if (!formData.description.trim()) {
+      showErrorToast("Please fill room name");
       return;
     }
 
@@ -247,13 +243,13 @@ export default function RoomTypes() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Room Type Code <span className="text-red-500">*</span>
+                Room Type Code
               </label>
               <Input
                 name="roomTypeCode"
                 value={formData.roomTypeCode}
                 placeholder="Enter room type code"
-                required
+                readonly
                 className="w-full"
                 onChange={handleInputChange}
               />
@@ -275,7 +271,7 @@ export default function RoomTypes() {
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                remarks <span className="text-red-500">*</span>
+                remarks
               </label>
               <textarea
                 name="remarks"
