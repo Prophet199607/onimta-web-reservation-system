@@ -248,7 +248,6 @@ export default function RoomTypes() {
               <Input
                 name="roomTypeCode"
                 value={formData.roomTypeCode}
-                placeholder="Enter room type code"
                 readonly
                 className="w-full"
                 onChange={handleInputChange}
