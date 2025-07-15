@@ -4,70 +4,63 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
+import API_BASE_URL from "../../config/api";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showLoadingToast,
+  dismissToast,
+} from "../../components/alert/ToastAlert";
 
 // Sample event types data
 interface EventType {
-  id: number;
-  code: string;
-  name: string;
-  remark: string;
+  eventTypeID: number;
+  eventCode: string;
+  description: string;
+  remarks: string;
 }
 
-//Sample data for event types
-const sampleEventTypes: EventType[] = [
-  {
-    id: 1,
-    code: "CON",
-    name: "Conference",
-    remark: "A formal meeting for discussion",
-  },
-  {
-    id: 2,
-    code: "WED",
-    name: "Wedding",
-    remark: "A ceremony where two people are united in marriage",
-  },
-  {
-    id: 3,
-    code: "BIRTH",
-    name: "Birthday",
-    remark: "A celebration of the anniversary of a person's birth",
-  },
-  {
-    id: 4,
-    code: "CORP",
-    name: "Corporate Event",
-    remark: "An event organized by a company for its employees or clients",
-  },
-];
-
 export default function EventTypes() {
+  const [formData, setFormData] = useState({
+    eventCode: "",
+    description: "",
+    remarks: "",
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [eventTypeCode, setEventTypeCode] = useState("");
-  const [eventTypeName, setEventTypeName] = useState("");
-  const [remark, setRemark] = useState("");
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedEventTypeId, setSelectedEventTypeId] = useState<number | null>(
-    null
-  );
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define columns for the DataTable
   const eventTypeColumns: Column<EventType>[] = [
     {
-      key: "code",
+      key: "index",
+      header: "#",
+      width: "20",
+      sortable: false,
+      render: (_value: any, _row: EventType, index: number) => (
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {index + 1}
+        </span>
+      ),
+    },
+    {
+      key: "eventCode",
       header: "Code",
       sortable: true,
       searchable: true,
       width: "100px",
     },
     {
-      key: "name",
+      key: "description",
       header: "Name",
       sortable: true,
       searchable: true,
     },
     {
-      key: "remark",
+      key: "remarks",
       header: "Remark",
       sortable: true,
       searchable: true,
@@ -93,31 +86,120 @@ export default function EventTypes() {
     };
   }, []);
 
-  const handleRowSelect = (eventType: EventType) => {
-    setEventTypeCode(eventType.code);
-    setEventTypeName(eventType.name);
-    setRemark(eventType.remark);
-    setIsModalOpen(false);
-    setIsEditMode(true);
-    setIsModalOpen(false);
+  const fetchEventTypes = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/EventType/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEventTypes(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error("Failed to fetch Event Types");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load event types");
+      setEventTypes([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchEventTypes();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", {
-      id: selectedEventTypeId,
-      eventTypeCode,
-      eventTypeName,
-      remark,
+
+    if (!formData.description.trim()) {
+      showErrorToast("Please fill event name");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const loadingToastId = showLoadingToast(
+      editingId ? "Updating Event Type..." : "Adding Event Type..."
+    );
+
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const url = editingId
+        ? `${API_BASE_URL}/api/EventType/Update/${editingId}`
+        : `${API_BASE_URL}/api/EventType/add`;
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast(
+          editingId
+            ? "Event Type updated successfully!"
+            : "Event Type added successfully!"
+        );
+        handleClear();
+        fetchEventTypes();
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Error saving event type:", error);
+      showErrorToast("Event Type Code already exists");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRowClick = (row: EventType) => {
+    setFormData({
+      eventCode: row.eventCode,
+      description: row.description,
+      remarks: row.remarks,
     });
+    setEditingId(row.eventTypeID);
+    setIsModalOpen(false);
   };
 
   const handleClear = () => {
-    setEventTypeCode("");
-    setEventTypeName("");
-    setRemark("");
-    setIsEditMode(false);
-    setSelectedEventTypeId(null);
+    setFormData({
+      eventCode: "",
+      description: "",
+      remarks: "",
+    });
+    setEditingId(null);
   };
 
   return (
@@ -128,55 +210,48 @@ export default function EventTypes() {
       />
 
       {/* Breadcrumb and Header container */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         {/* Breadcrumb */}
-        <nav>
-          <ol className="flex items-center space-x-2 text-sm">
+        <nav className="order-2 lg:order-1">
+          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
             <li>
-              <a href="/" className="text-gray-500 hover:text-gray-700">
+              <a
+                href="/dashboard"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              >
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-500">/</li>
+            <li className="text-gray-500 dark:text-gray-400">/</li>
             <li className="text-gray-900 dark:text-white">Event Types</li>
           </ol>
         </nav>
 
         {/* Header */}
-        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-          Manage Event Types
-        </h3>
+        <div className="order-1 lg:order-2">
+          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
+            Manage Event Types
+          </h3>
+        </div>
 
-        {/* Empty div for equal spacing */}
-        <div className="w-[120px]"></div>
+        {/* Empty div for equal spacing on desktop only */}
+        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end w-full">
-              <div className="w-full sm:flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Event Type Code <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter event type code"
-                  required
-                  className="w-full"
-                  value={eventTypeCode}
-                  onChange={(e) => setEventTypeCode(e.target.value)}
-                />
-              </div>
-
-              <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                  size="md"
-                >
-                  New
-                </Button>
-              </div>
+            <div className="w-full sm:flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Event Type Code
+              </label>
+              <Input
+                name="eventCode"
+                value={formData.eventCode}
+                readonly
+                className="w-full"
+                onChange={handleInputChange}
+              />
             </div>
 
             <div className="flex-1 mt-6">
@@ -184,46 +259,56 @@ export default function EventTypes() {
                 Name <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Enter Name"
+                name="description"
+                value={formData.description}
+                placeholder="Enter Event Name"
                 required
                 className="w-full"
-                value={eventTypeName}
-                onChange={(e) => setEventTypeName(e.target.value)}
+                onChange={handleInputChange}
               />
             </div>
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Remark <span className="text-red-500">*</span>
+                Remark
               </label>
               <textarea
+                name="remarks"
+                value={formData.remarks}
                 className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 rows={4}
-                placeholder="Enter your remark here"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
+                placeholder="Enter your remarks here"
+                onChange={handleTextAreaChange}
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
               <Button
                 type="submit"
-                className={`w-full sm:w-48 text-white ${
-                  isEditMode
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 border-blue-300"
-                }`}
+                className={`w-50 sm:w-auto sm:min-w-[180px] ${
+                  editingId
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
                 size="md"
+                disabled={isSubmitting}
               >
-                {isEditMode ? "Update" : "Submit"}
+                {isSubmitting
+                  ? editingId
+                    ? "Updating..."
+                    : "Adding..."
+                  : editingId
+                  ? "Update"
+                  : "Submit"}
               </Button>
               <Button
                 type="button"
-                onClick={handleClear}
                 size="md"
-                className="w-full sm:w-48 bg-gray-500 hover:bg-gray-600 text-white"
+                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleClear}
+                disabled={isSubmitting}
               >
-                Clear
+                {editingId ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -238,13 +323,16 @@ export default function EventTypes() {
         size="2xl"
       >
         <DataTable
-          data={sampleEventTypes}
+          data={eventTypes}
           columns={eventTypeColumns}
+          loading={loading}
           searchable={true}
           pagination={true}
-          onRowClick={handleRowSelect}
+          sortable={true}
+          pageSize={10}
+          onRowClick={handleRowClick}
           className="border-0 shadow-none"
-          emptyMessage="No items available"
+          emptyMessage="No data available"
         />
       </Modal>
     </>
