@@ -4,41 +4,55 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
+import API_BASE_URL from "../../config/api";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showLoadingToast,
+  dismissToast,
+} from "../../components/alert/ToastAlert";
 
 // Sample event types data
 interface TravelAgent {
-  id: number;
-  code: string;
-  name: string;
+  travelAgentID: number;
+  travelAgentCode: string;
+  description: string;
 }
 
-//Sample data for travel agents
-const sampleTravelAgents: TravelAgent[] = [
-  { id: 1, code: "AGT001", name: "Travel Agent One" },
-  { id: 2, code: "AGT002", name: "Travel Agent Two" },
-  { id: 3, code: "AGT003", name: "Travel Agent Three" },
-];
-
 export default function TravelAgent() {
+  const [formData, setFormData] = useState({
+    travelAgentCode: "",
+    description: "",
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [travelAgentCode, setTravelAgentCode] = useState("");
-  const [travelAgentName, setTravelAgentName] = useState("");
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTravelAgentTypeId, setSelectedTravelAgentTypeId] = useState<
-    number | null
-  >(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [travelAgents, setTravelAgents] = useState<TravelAgent[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define columns for the DataTable
   const travelAgentColumns: Column<TravelAgent>[] = [
     {
-      key: "code",
+      key: "index",
+      header: "#",
+      width: "20",
+      sortable: false,
+      render: (_value: any, _row: TravelAgent, index: number) => (
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {index + 1}
+        </span>
+      ),
+    },
+    {
+      key: "travelAgentCode",
       header: "Code",
       sortable: true,
       searchable: true,
       width: "100px",
     },
     {
-      key: "name",
+      key: "description",
       header: "Name",
       sortable: true,
       searchable: true,
@@ -64,28 +78,110 @@ export default function TravelAgent() {
     };
   }, []);
 
-  const handleRowSelect = (travelAgent: TravelAgent) => {
-    setTravelAgentCode(travelAgent.code);
-    setTravelAgentName(travelAgent.name);
-    setIsModalOpen(false);
-    setIsEditMode(true);
-    setIsModalOpen(false);
+  const fetchTravelAgents = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/TravelAgent/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTravelAgents(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error("Failed to fetch Travel Agents");
+      }
+    } catch (error) {
+      console.log("Failed to load travel agents");
+      setTravelAgents([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchTravelAgents();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", {
-      id: selectedTravelAgentTypeId,
-      travelAgentCode,
-      travelAgentName,
+
+    if (!formData.description.trim()) {
+      showErrorToast("Please fill travel agent name");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const loadingToastId = showLoadingToast(
+      editingId ? "Updating Travel Agent..." : "Adding Travel Agent..."
+    );
+
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const url = editingId
+        ? `${API_BASE_URL}/api/TravelAgent/Update/${editingId}`
+        : `${API_BASE_URL}/api/TravelAgent/add`;
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: {
+          "Content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast(
+          editingId
+            ? "Travel Agent updated successfully!"
+            : "Travel Agent added successfully!"
+        );
+        handleClear();
+        fetchTravelAgents();
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Error saving travel agent:", error);
+      showErrorToast("Travel Agent Code already exists");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRowClick = (row: TravelAgent) => {
+    setFormData({
+      travelAgentCode: row.travelAgentCode,
+      description: row.description,
     });
+    setEditingId(row.travelAgentID);
+    setIsModalOpen(false);
   };
 
   const handleClear = () => {
-    setTravelAgentCode("");
-    setTravelAgentName("");
-    setIsEditMode(false);
-    setSelectedTravelAgentTypeId(null);
+    setFormData({
+      travelAgentCode: "",
+      description: "",
+    });
+    setEditingId(null);
   };
 
   return (
@@ -96,55 +192,48 @@ export default function TravelAgent() {
       />
 
       {/* Breadcrumb and Header container */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         {/* Breadcrumb */}
-        <nav>
-          <ol className="flex items-center space-x-2 text-sm">
+        <nav className="order-2 lg:order-1">
+          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
             <li>
-              <a href="/" className="text-gray-500 hover:text-gray-700">
+              <a
+                href="/dashboard"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              >
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-500">/</li>
+            <li className="text-gray-500 dark:text-gray-400">/</li>
             <li className="text-gray-900 dark:text-white">Travel Agent</li>
           </ol>
         </nav>
 
         {/* Header */}
-        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-          Manage Travel Agent
-        </h3>
+        <div className="order-1 lg:order-2">
+          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
+            Manage Travel Agent
+          </h3>
+        </div>
 
-        {/* Empty div for equal spacing */}
-        <div className="w-[120px]"></div>
+        {/* Empty div for equal spacing on desktop only */}
+        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end w-full">
-              <div className="w-full sm:flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Agent Code <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter Agent code"
-                  required
-                  className="w-full"
-                  value={travelAgentCode}
-                  onChange={(e) => setTravelAgentCode(e.target.value)}
-                />
-              </div>
-
-              <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                  size="md"
-                >
-                  New
-                </Button>
-              </div>
+            <div className="w-full sm:flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Agent Code
+              </label>
+              <Input
+                name="travelAgentCode"
+                value={formData.travelAgentCode}
+                readonly
+                className="w-full"
+                onChange={handleInputChange}
+              />
             </div>
 
             <div className="flex-1 mt-6">
@@ -152,33 +241,42 @@ export default function TravelAgent() {
                 Name <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Enter Name"
+                name="description"
+                value={formData.description}
+                placeholder="Enter Travel Agent Name"
                 required
                 className="w-full"
-                value={travelAgentName}
-                onChange={(e) => setTravelAgentName(e.target.value)}
+                onChange={handleInputChange}
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
               <Button
                 type="submit"
-                className={`w-full sm:w-48 text-white ${
-                  isEditMode
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 border-blue-300"
-                }`}
+                className={`w-50 sm:w-auto sm:min-w-[180px] ${
+                  editingId
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
                 size="md"
+                disabled={isSubmitting}
               >
-                {isEditMode ? "Update" : "Submit"}
+                {isSubmitting
+                  ? editingId
+                    ? "Updating..."
+                    : "Adding..."
+                  : editingId
+                  ? "Update"
+                  : "Submit"}
               </Button>
               <Button
                 type="button"
-                onClick={handleClear}
                 size="md"
-                className="w-full sm:w-48 bg-gray-500 hover:bg-gray-600 text-white"
+                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleClear}
+                disabled={isSubmitting}
               >
-                Clear
+                {editingId ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -189,17 +287,20 @@ export default function TravelAgent() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Event Type"
+        title="Select Travel Agent"
         size="2xl"
       >
         <DataTable
-          data={sampleTravelAgents}
+          data={travelAgents}
           columns={travelAgentColumns}
+          loading={loading}
           searchable={true}
           pagination={true}
-          onRowClick={handleRowSelect}
+          sortable={true}
+          pageSize={10}
+          onRowClick={handleRowClick}
           className="border-0 shadow-none"
-          emptyMessage="No items available"
+          emptyMessage="No data available"
         />
       </Modal>
     </>
