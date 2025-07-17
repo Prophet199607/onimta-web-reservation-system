@@ -5,71 +5,49 @@ import Button from "../../components/ui/button/Button";
 import Select from "../../components/form/Select";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
+import API_BASE_URL from "../../config/api";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showLoadingToast,
+  dismissToast,
+} from "../../components/alert/ToastAlert";
 
 //Sample package data
 interface Package {
-  id: number;
-  code: string;
-  name: string;
-  type: string;
-  duration: string;
+  packageID: number;
+  packageCode: string;
+  packageName: string;
+  packageDuration: number;
+  remarks: string;
+  roomPrice: number;
+  roomCost: number;
   roomAmount: number;
-  price: number;
-  cost: number;
   foodAmount: number;
   beverageAmount: number;
-  remark: string;
+  isRoom: boolean;
+  isBanquet: boolean;
 }
 
-// Sample data for packages
-const samplePackages: Package[] = [
-  {
-    id: 1,
-    code: "PKG001",
-    name: "Standard Package",
-    type: "Room",
-    duration: "1 Night",
-    roomAmount: 100,
-    price: 150,
-    cost: 120,
-    foodAmount: 50,
-    beverageAmount: 30,
-    remark: "Includes breakfast and dinner.",
-  },
-  {
-    id: 2,
-    code: "PKG002",
-    name: "Deluxe Package",
-    type: "Banquet",
-    duration: "2 Nights",
-    roomAmount: 200,
-    price: 300,
-    cost: 250,
-    foodAmount: 100,
-    beverageAmount: 70,
-    remark: "Includes all meals and beverages.",
-  },
-];
-
 export default function PackageInfo() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedPackageInfoId, setSelectedPackageInfoId] = useState<
-    number | null
-  >(null);
+  const [formData, setFormData] = useState({
+    packageCode: "",
+    packageName: "",
+    roomPrice: "",
+    roomCost: "",
+    packageDuration: "",
+    roomAmount: "",
+    foodAmount: "",
+    beverageAmount: "",
+    remarks: "",
+    type: "",
+  });
 
-  // Individual form state variables
-  const [packageCode, setPackageCode] = useState("");
-  const [packageName, setPackageName] = useState("");
-  const [packageType, setPackageType] = useState("");
-  const [duration, setDuration] = useState("");
-  const [roomAmount, setRoomAmount] = useState("");
-  const [price, setPrice] = useState("");
-  const [cost, setCost] = useState("");
-  const [foodAmount, setFoodAmount] = useState("");
-  const [beverageAmount, setBeverageAmount] = useState("");
-  const [remark, setRemark] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [packageInfo, setPackageInfo] = useState<Package[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const typeOptions = [
     { value: "Room", label: "Room" },
@@ -79,13 +57,13 @@ export default function PackageInfo() {
   // Define columns for the DataTable
   const packageColumns: Column<Package>[] = [
     {
-      key: "code",
+      key: "packageCode",
       header: "Package Code",
       sortable: true,
       searchable: true,
     },
     {
-      key: "name",
+      key: "packageName",
       header: "Package Name",
       sortable: true,
       searchable: true,
@@ -97,8 +75,8 @@ export default function PackageInfo() {
       searchable: true,
     },
     {
-      key: "duration",
-      header: "Duration",
+      key: "packageDuration",
+      header: "Duration (Hrs)",
       sortable: true,
       searchable: true,
     },
@@ -109,13 +87,13 @@ export default function PackageInfo() {
       searchable: true,
     },
     {
-      key: "price",
+      key: "roomPrice",
       header: "Price",
       sortable: true,
       searchable: true,
     },
     {
-      key: "cost",
+      key: "roomCost",
       header: "Cost",
       sortable: true,
       searchable: true,
@@ -133,7 +111,7 @@ export default function PackageInfo() {
       searchable: true,
     },
     {
-      key: "remark",
+      key: "remarks",
       header: "Remark",
       sortable: false,
       searchable: false,
@@ -158,65 +136,188 @@ export default function PackageInfo() {
     };
   }, []);
 
-  useEffect(() => {
-    if (selectedPackage) {
-      setPackageCode(selectedPackage.code);
-      setPackageName(selectedPackage.name);
-      setPackageType(selectedPackage.type);
-      setDuration(selectedPackage.duration);
-      setRoomAmount(selectedPackage.roomAmount.toString());
-      setPrice(selectedPackage.price.toString());
-      setCost(selectedPackage.cost.toString());
-      setFoodAmount(selectedPackage.foodAmount.toString());
-      setBeverageAmount(selectedPackage.beverageAmount.toString());
-      setRemark(selectedPackage.remark);
-    }
-  }, [selectedPackage]);
+  const fetchPackageInfo = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
 
-  const handleRowSelect = (pkg: Package) => {
-    setSelectedPackage(pkg);
-    setIsModalOpen(false);
-    setIsEditMode(true);
-    setIsModalOpen(false);
+      const response = await fetch(`${API_BASE_URL}/api/PackageInfo/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setPackageInfo(data);
+        } else {
+          setPackageInfo([]);
+          showErrorToast("Invalid data format received from server");
+        }
+      } else {
+        throw new Error(
+          `Failed to fetch Package Information: ${response.status}`
+        );
+      }
+    } catch (error) {
+      showErrorToast("Failed to load package information");
+      setPackageInfo([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Form submitted:", {
-      id: selectedPackageInfoId,
-      packageCode,
-      packageName,
-      packageType,
-      duration,
-      roomAmount,
-      price,
-      cost,
-      foodAmount,
-      beverageAmount,
-      remark,
+  useEffect(() => {
+    fetchPackageInfo();
+  }, []);
+
+  // Handle select field changes
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData({
+      ...formData,
+      [field]: value,
     });
   };
 
-  const handleTypeChange = (value: string) => {
-    setPackageType(value);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  // Clear function
-  const handleClear = () => {
-    setSelectedPackage(null);
-    setPackageCode("");
-    setPackageName("");
-    setPackageType("");
-    setDuration("");
-    setRoomAmount("");
-    setPrice("");
-    setCost("");
-    setFoodAmount("");
-    setBeverageAmount("");
-    setRemark("");
+  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.packageName.trim() || !formData.type.trim()) {
+      showErrorToast("Please fill in required fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const loadingToastId = showLoadingToast(
+      editingId ? "Updating Package Info..." : "Adding Package Info..."
+    );
+
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const url = editingId
+        ? `${API_BASE_URL}/api/PackageInfo/Update/${editingId}`
+        : `${API_BASE_URL}/api/PackageInfo/add`;
+
+      // Prepare data with correct field names
+      const requestData = {
+        ...(editingId && { packageID: editingId }),
+        packageCode: formData.packageCode || "",
+        packageName: formData.packageName.trim(),
+        packageDuration: parseFloat(formData.packageDuration) || 0,
+        roomPrice: parseFloat(formData.roomPrice) || 0,
+        roomCost: parseFloat(formData.roomCost) || 0,
+        roomAmount: parseFloat(formData.roomAmount) || 0,
+        foodAmount: parseFloat(formData.foodAmount) || 0,
+        beverageAmount: parseFloat(formData.beverageAmount) || 0,
+        remarks: formData.remarks || "",
+        isRoom: formData.type === "Room",
+        isBanquet: formData.type === "Banquet",
+      };
+
+      console.log("Request data:", requestData);
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast(
+          editingId
+            ? "Package Information updated successfully!"
+            : "Package Information added successfully!"
+        );
+        handleClear();
+        fetchPackageInfo();
+      } else {
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${errorText}`
+        );
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Error saving package info:", error);
+      showErrorToast(
+        error instanceof Error
+          ? error.message
+          : "Failed to save package information"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // handleRowClick function
+  const handleRowClick = (row: Package) => {
+    // Determine type from boolean flags
+    let type = "";
+    if (row.isRoom && row.isBanquet) type = "Room & Banquet";
+    else if (row.isRoom) type = "Room";
+    else if (row.isBanquet) type = "Banquet";
+
+    setFormData({
+      packageCode: row.packageCode || "",
+      packageName: row.packageName || "",
+      roomPrice: row.roomPrice.toString(),
+      roomCost: row.roomCost.toString(),
+      packageDuration: row.packageDuration.toString(),
+      roomAmount: row.roomAmount.toString(),
+      foodAmount: row.foodAmount.toString(),
+      beverageAmount: row.beverageAmount.toString(),
+      remarks: row.remarks || "",
+      type: type,
+    });
+    setEditingId(row.packageID);
     setIsModalOpen(false);
-    setIsEditMode(false);
-    setSelectedPackageInfoId(null);
+  };
+
+  // handleClear function
+  const handleClear = () => {
+    setFormData({
+      packageCode: "",
+      packageName: "",
+      roomPrice: "",
+      roomCost: "",
+      packageDuration: "",
+      roomAmount: "",
+      foodAmount: "",
+      beverageAmount: "",
+      remarks: "",
+      type: "",
+    });
+    setEditingId(null);
   };
 
   return (
@@ -227,16 +328,19 @@ export default function PackageInfo() {
       />
 
       {/* Breadcrumb and Header container */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         {/* Breadcrumb */}
-        <nav>
-          <ol className="flex items-center space-x-2 text-sm">
+        <nav className="order-2 lg:order-1">
+          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
             <li>
-              <a href="/" className="text-gray-500 hover:text-gray-700">
+              <a
+                href="/dashboard"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              >
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-500">/</li>
+            <li className="text-gray-500 dark:text-gray-400">/</li>
             <li className="text-gray-900 dark:text-white">
               Package Information
             </li>
@@ -244,54 +348,43 @@ export default function PackageInfo() {
         </nav>
 
         {/* Header */}
-        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-          Manage Package Information
-        </h3>
+        <div className="order-1 lg:order-2">
+          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
+            Manage Package Information
+          </h3>
+        </div>
 
-        {/* Empty div for equal spacing */}
-        <div className="w-[120px]"></div>
+        {/* Empty div for equal spacing on desktop only */}
+        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end w-full">
-              <div className="w-full sm:flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Package Type <span className="text-red-500">*</span>
-                </label>
-                <Select
-                  options={typeOptions}
-                  placeholder="Select Type"
-                  className="mb-0 w-full"
-                  value={packageType}
-                  onChange={handleTypeChange}
-                />
-              </div>
-
-              <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                <Button
-                  type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                  size="md"
-                >
-                  New (F3)
-                </Button>
-              </div>
+            <div className="w-full sm:flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Package Type <span className="text-red-500">*</span>
+              </label>
+              <Select
+                options={typeOptions}
+                onChange={(value) => handleSelectChange("type", value)}
+                placeholder="Select Type"
+                value={formData.type}
+                className="mb-0"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Package Code <span className="text-red-500">*</span>
+                  Package Code
                 </label>
                 <Input
-                  placeholder="Enter Package Code"
-                  required
+                  name="packageCode"
+                  value={formData.packageCode}
+                  readonly
                   className="w-full"
-                  value={packageCode}
-                  onChange={(e) => setPackageCode(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
@@ -299,11 +392,12 @@ export default function PackageInfo() {
                   Package Name <span className="text-red-500">*</span>
                 </label>
                 <Input
+                  name="packageName"
+                  value={formData.packageName}
                   placeholder="Enter Package Name"
                   required
                   className="w-full"
-                  value={packageName}
-                  onChange={(e) => setPackageName(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -311,26 +405,28 @@ export default function PackageInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Duration <span className="text-red-500">*</span>
+                  Duration
                 </label>
                 <Input
-                  placeholder="Enter Duration"
+                  name="packageDuration"
+                  value={formData.packageDuration}
+                  placeholder="Enter Duration Hrs"
                   required
                   className="w-full"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Amount <span className="text-red-500">*</span>
+                  Room Amount
                 </label>
                 <Input
+                  name="roomAmount"
+                  value={formData.roomAmount}
                   placeholder="Enter Room Amount"
                   required
                   className="w-full"
-                  value={roomAmount}
-                  onChange={(e) => setRoomAmount(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -338,26 +434,28 @@ export default function PackageInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Price <span className="text-red-500">*</span>
+                  Price
                 </label>
                 <Input
+                  name="roomPrice"
+                  value={formData.roomPrice}
                   placeholder="Enter Price"
                   required
                   className="w-full"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cost <span className="text-red-500">*</span>
+                  Cost
                 </label>
                 <Input
+                  name="roomCost"
+                  value={formData.roomCost}
                   placeholder="Enter Cost"
                   required
                   className="w-full"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -365,62 +463,73 @@ export default function PackageInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Food Amount <span className="text-red-500">*</span>
+                  Food Amount
                 </label>
                 <Input
+                  name="foodAmount"
+                  value={formData.foodAmount}
                   placeholder="Enter Food Amount"
                   required
                   className="w-full"
-                  value={foodAmount}
-                  onChange={(e) => setFoodAmount(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Beverage Amount <span className="text-red-500">*</span>
+                  Beverage Amount
                 </label>
                 <Input
+                  name="beverageAmount"
+                  value={formData.beverageAmount}
                   placeholder="Enter Beverage Amount"
                   required
                   className="w-full"
-                  value={beverageAmount}
-                  onChange={(e) => setBeverageAmount(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Remark <span className="text-red-500">*</span>
+                Remark
               </label>
               <textarea
+                name="remarks"
+                value={formData.remarks}
                 className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 rows={4}
-                placeholder="Enter your remark here"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
+                placeholder="Enter your remarks here"
+                onChange={handleTextAreaChange}
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
               <Button
                 type="submit"
-                className={`w-full sm:w-48 text-white ${
-                  isEditMode
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 border-blue-300"
-                }`}
+                className={`w-50 sm:w-auto sm:min-w-[180px] ${
+                  editingId
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
                 size="md"
+                disabled={isSubmitting}
               >
-                {isEditMode ? "Update" : "Submit"}
+                {isSubmitting
+                  ? editingId
+                    ? "Updating..."
+                    : "Adding..."
+                  : editingId
+                  ? "Update"
+                  : "Submit"}
               </Button>
               <Button
                 type="button"
-                onClick={handleClear}
                 size="md"
-                className="w-full sm:w-48 bg-gray-500 hover:bg-gray-600 text-white"
+                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleClear}
+                disabled={isSubmitting}
               >
-                Clear
+                {editingId ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -435,13 +544,16 @@ export default function PackageInfo() {
         size="2xl"
       >
         <DataTable
-          data={samplePackages}
+          data={packageInfo}
           columns={packageColumns}
+          loading={loading}
           searchable={true}
           pagination={true}
-          onRowClick={handleRowSelect}
+          sortable={true}
+          pageSize={10}
+          onRowClick={handleRowClick}
           className="border-0 shadow-none"
-          emptyMessage="No items available"
+          emptyMessage="No data available"
         />
       </Modal>
     </>
