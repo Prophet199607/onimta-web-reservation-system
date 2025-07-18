@@ -57,6 +57,17 @@ export default function PackageInfo() {
   // Define columns for the DataTable
   const packageColumns: Column<Package>[] = [
     {
+      key: "index",
+      header: "#",
+      width: "20",
+      sortable: false,
+      render: (_value: any, _row: Package, index: number) => (
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {index + 1}
+        </span>
+      ),
+    },
+    {
       key: "packageCode",
       header: "Package Code",
       sortable: true,
