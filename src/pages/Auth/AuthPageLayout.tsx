@@ -25,8 +25,8 @@ export default function AuthLayout({
                   alt="Logo"
                 />
               </Link>
-              <p className="text-center text-gray-400 dark:text-white/60">
-                Free and Open-Source Tailwind CSS Admin Dashboard Template
+              <p className="font-serif text-center text-amber-50 font-bold text-lg dark:text-white/60">
+                HOTEL RESERVATION SYSTEM
               </p>
             </div>
           </div>
