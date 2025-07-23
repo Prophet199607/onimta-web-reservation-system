@@ -12,6 +12,7 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../components/alert/ToastAlert";
+import { FiSearch, FiX } from "react-icons/fi";
 
 //Sample package data
 interface Package {
@@ -48,6 +49,8 @@ export default function PackageInfo() {
   const [loading, setLoading] = useState(false);
   const [packageInfo, setPackageInfo] = useState<Package[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredPackageInfo, setFilteredPackageInfo] = useState<Package[]>([]);
 
   const typeOptions = [
     { value: "Room", label: "Room" },
@@ -187,6 +190,54 @@ export default function PackageInfo() {
   useEffect(() => {
     fetchPackageInfo();
   }, []);
+
+  // Search Handling
+  const handleChange = (e: React.FormEvent) => {
+    const value = (e.target as HTMLInputElement).value;
+    setSearchTerm(value);
+
+    // Filter room types based on search term
+    if (value.trim() === "") {
+      setFilteredPackageInfo([]);
+    } else {
+      const filtered = packageInfo.filter(
+        (packageInfo) =>
+          packageInfo.packageCode.toLowerCase().includes(value.toLowerCase()) ||
+          packageInfo.packageName.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredPackageInfo(filtered);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setFilteredPackageInfo([]);
+    handleClear();
+  };
+
+  // Function to handle selecting a room type from search results
+  const handleSearchResultClick = (packageInfo: Package) => {
+    setFormData({
+      packageCode: packageInfo.packageCode,
+      packageName: packageInfo.packageName,
+      roomPrice: packageInfo.roomPrice.toString(),
+      roomCost: packageInfo.roomCost.toString(),
+      packageDuration: packageInfo.packageDuration.toString(),
+      roomAmount: packageInfo.roomAmount.toString(),
+      foodAmount: packageInfo.foodAmount.toString(),
+      beverageAmount: packageInfo.beverageAmount.toString(),
+      remarks: packageInfo.remarks || "",
+      type: packageInfo.isRoom
+        ? "Room"
+        : packageInfo.isBanquet
+        ? "Banquet"
+        : "",
+    });
+
+    setEditingId(packageInfo.packageID);
+    setSearchTerm("");
+    setFilteredPackageInfo([]);
+  };
 
   // Handle select field changes
   const handleSelectChange = (field: string, value: string) => {
@@ -372,30 +423,85 @@ export default function PackageInfo() {
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Search Field */}
+            <div className="w-full sm:w-2/5 sm:ml-auto relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleChange}
+                placeholder="Search by code or description...."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+              />
+
+              <div className="absolute inset-y-0 right-3 flex items-center">
+                {searchTerm ? (
+                  <FiX
+                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
+                    onClick={clearSearch}
+                  />
+                ) : (
+                  <FiSearch className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchTerm && filteredPackageInfo.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredPackageInfo.map((packageInfo) => (
+                    <div
+                      key={packageInfo.packageID}
+                      onClick={() => handleSearchResultClick(packageInfo)}
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {packageInfo.packageCode}
+                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {packageInfo.packageName}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {searchTerm &&
+                filteredPackageInfo.length === 0 &&
+                packageInfo.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                      No package info found
+                    </div>
+                  </div>
+                )}
+            </div>
+
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Package Type <span className="text-red-500">*</span>
+                Package Code
               </label>
-              <Select
-                options={typeOptions}
-                onChange={(value) => handleSelectChange("type", value)}
-                placeholder="Select Type"
-                value={formData.type}
-                className="mb-0"
+              <Input
+                name="packageCode"
+                value={formData.packageCode}
+                readonly
+                className="w-full"
+                onChange={handleInputChange}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Package Code
+                  Package Type <span className="text-red-500">*</span>
                 </label>
-                <Input
-                  name="packageCode"
-                  value={formData.packageCode}
-                  readonly
-                  className="w-full"
-                  onChange={handleInputChange}
+                <Select
+                  options={typeOptions}
+                  onChange={(value) => handleSelectChange("type", value)}
+                  placeholder="Select Type"
+                  value={formData.type}
+                  className="mb-0"
                 />
               </div>
               <div>

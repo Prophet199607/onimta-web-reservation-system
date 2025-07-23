@@ -12,6 +12,7 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../components/alert/ToastAlert";
+import { FiSearch, FiX } from "react-icons/fi";
 
 // Sample service types data
 interface ServiceTypes {
@@ -40,6 +41,10 @@ export default function ServiceTypes() {
   const [loading, setLoading] = useState(false);
   const [servicetype, setServiceType] = useState<ServiceTypes[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredServiceTypes, setFilteredServiceTypes] = useState<
+    ServiceTypes[]
+  >([]);
 
   const typeOptions = [
     { value: "Room", label: "Room" },
@@ -154,6 +159,50 @@ export default function ServiceTypes() {
   useEffect(() => {
     fetchServiceTypes();
   }, []);
+
+  // Search Handling
+  const handleChange = (e: React.FormEvent) => {
+    const value = (e.target as HTMLInputElement).value;
+    setSearchTerm(value);
+
+    // Filter room types based on search term
+    if (value.trim() === "") {
+      setFilteredServiceTypes([]);
+    } else {
+      const filtered = servicetype.filter(
+        (servicetype) =>
+          servicetype.serviceCode.toLowerCase().includes(value.toLowerCase()) ||
+          servicetype.serviceName.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredServiceTypes(filtered);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setFilteredServiceTypes([]);
+    handleClear();
+  };
+
+  // Function to handle selecting a room type from search results
+  const handleSearchResultClick = (servicetype: ServiceTypes) => {
+    setFormData({
+      serviceCode: servicetype.serviceCode,
+      serviceName: servicetype.serviceName,
+      quantity: servicetype.quantity.toString(),
+      serviceAmount: servicetype.serviceAmount.toString(),
+      remarks: servicetype.remarks || "",
+      type: servicetype.isRoom
+        ? "Room"
+        : servicetype.isBanquet
+        ? "Banquet"
+        : "",
+    });
+
+    setEditingId(servicetype.serviceTypeID);
+    setSearchTerm("");
+    setFilteredServiceTypes([]);
+  };
 
   const handleSelectChange = (field: string, value: string) => {
     setFormData({
@@ -326,6 +375,61 @@ export default function ServiceTypes() {
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Search Field */}
+            <div className="w-full sm:w-2/5 sm:ml-auto relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleChange}
+                placeholder="Search by code or description...."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+              />
+
+              <div className="absolute inset-y-0 right-3 flex items-center">
+                {searchTerm ? (
+                  <FiX
+                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
+                    onClick={clearSearch}
+                  />
+                ) : (
+                  <FiSearch className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchTerm && filteredServiceTypes.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredServiceTypes.map((servicetype) => (
+                    <div
+                      key={servicetype.serviceTypeID}
+                      onClick={() => handleSearchResultClick(servicetype)}
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {servicetype.serviceCode}
+                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {servicetype.serviceName}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {searchTerm &&
+                filteredServiceTypes.length === 0 &&
+                servicetype.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                      No service types found
+                    </div>
+                  </div>
+                )}
+            </div>
+
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Service Type Code

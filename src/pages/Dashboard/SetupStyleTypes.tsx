@@ -11,6 +11,7 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../components/alert/ToastAlert";
+import { FiSearch, FiX } from "react-icons/fi";
 
 // Sample setup style types data
 interface SetupStyleType {
@@ -32,6 +33,10 @@ export default function SetupStyleTypes() {
   const [loading, setLoading] = useState(false);
   const [setupStyleTypes, setSetupStyleTypes] = useState<SetupStyleType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredServiceStyleTypes, setFilteredServiceStyleTypes] = useState<
+    SetupStyleType[]
+  >([]);
 
   // Define columns for the DataTable
   const setupStyleTypeColumns: Column<SetupStyleType>[] = [
@@ -115,6 +120,42 @@ export default function SetupStyleTypes() {
   useEffect(() => {
     fetchSetupStyleTypes();
   }, []);
+
+  // Search Handling
+  const handleChange = (e: React.FormEvent) => {
+    const value = (e.target as HTMLInputElement).value;
+    setSearchTerm(value);
+
+    // Filter room types based on search term
+    if (value.trim() === "") {
+      setFilteredServiceStyleTypes([]);
+    } else {
+      const filtered = setupStyleTypes.filter(
+        (setupStyle) =>
+          setupStyle.description.toLowerCase().includes(value.toLowerCase()) ||
+          setupStyle.setupStyleCode.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredServiceStyleTypes(filtered);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setFilteredServiceStyleTypes([]);
+    handleClear();
+  };
+
+  // Function to handle selecting a room type from search results
+  const handleSearchResultClick = (setupStyle: SetupStyleType) => {
+    setFormData({
+      setupStyleCode: setupStyle.setupStyleCode,
+      description: setupStyle.description,
+      remarks: setupStyle.remarks,
+    });
+    setEditingId(setupStyle.setupStyleTypeID);
+    setSearchTerm("");
+    setFilteredServiceStyleTypes([]);
+  };
 
   const handleRowClick = (row: SetupStyleType) => {
     setFormData({
@@ -243,6 +284,61 @@ export default function SetupStyleTypes() {
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Search Field */}
+            <div className="w-full sm:w-2/5 sm:ml-auto relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleChange}
+                placeholder="Search by code or description...."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+              />
+
+              <div className="absolute inset-y-0 right-3 flex items-center">
+                {searchTerm ? (
+                  <FiX
+                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
+                    onClick={clearSearch}
+                  />
+                ) : (
+                  <FiSearch className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchTerm && filteredServiceStyleTypes.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredServiceStyleTypes.map((setupStyle) => (
+                    <div
+                      key={setupStyle.setupStyleTypeID}
+                      onClick={() => handleSearchResultClick(setupStyle)}
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {setupStyle.setupStyleCode}
+                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {setupStyle.description}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {searchTerm &&
+                filteredServiceStyleTypes.length === 0 &&
+                setupStyleTypes.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                      No setup style types found
+                    </div>
+                  </div>
+                )}
+            </div>
+
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Setup Style Code
