@@ -119,6 +119,48 @@ export default function EventTypes() {
     fetchEventTypes();
   }, []);
 
+  const fetchNextCode = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/EventType/getNextCode`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          eventCode: data.nextCode || "",
+        }));
+      } else {
+        throw new Error("Failed to fetch Event Type code");
+      }
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to load event type code");
+      setFormData((prev) => ({
+        ...prev,
+        eventCode: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
+
   // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
@@ -239,6 +281,7 @@ export default function EventTypes() {
       remarks: "",
     });
     setEditingId(null);
+    fetchNextCode();
   };
 
   return (

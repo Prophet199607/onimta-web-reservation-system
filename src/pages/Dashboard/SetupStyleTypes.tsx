@@ -121,6 +121,48 @@ export default function SetupStyleTypes() {
     fetchSetupStyleTypes();
   }, []);
 
+  const fetchNextCode = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/SetupStyle/getNextCode`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          setupStyleCode: data.nextCode || "",
+        }));
+      } else {
+        throw new Error("Failed to fetch Setup Style code");
+      }
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to load setup style code");
+      setFormData((prev) => ({
+        ...prev,
+        setupStyleCode: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
+
   // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;

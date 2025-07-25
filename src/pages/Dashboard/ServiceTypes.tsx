@@ -46,6 +46,12 @@ export default function ServiceTypes() {
     ServiceTypes[]
   >([]);
 
+  const formatThousand = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (!num) return "";
+    return Number(num).toLocaleString();
+  };
+
   const typeOptions = [
     { value: "Room", label: "Room" },
     { value: "Banquet", label: "Banquet" },
@@ -160,6 +166,48 @@ export default function ServiceTypes() {
     fetchServiceTypes();
   }, []);
 
+  const fetchNextCode = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/ServiceType/getNextCode`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          serviceCode: data.nextCode || "",
+        }));
+      } else {
+        throw new Error("Failed to fetch Room Type code");
+      }
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to load room type code");
+      setFormData((prev) => ({
+        ...prev,
+        serviceCode: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
+
   // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
@@ -213,9 +261,16 @@ export default function ServiceTypes() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    // Remove all commas for internal value
+    const rawValue = value.replace(/,/g, "");
+
+    // Allow only numbers
+    if (!/^\d*$/.test(rawValue)) return;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: rawValue,
     }));
   };
 
@@ -334,6 +389,7 @@ export default function ServiceTypes() {
       type: "",
     });
     setEditingId(null);
+    fetchNextCode();
   };
 
   return (
@@ -468,6 +524,7 @@ export default function ServiceTypes() {
                   placeholder="Enter Quantity"
                   required
                   className="w-full"
+                  type="number"
                   onChange={handleInputChange}
                 />
               </div>
@@ -477,7 +534,7 @@ export default function ServiceTypes() {
                 </label>
                 <Input
                   name="serviceAmount"
-                  value={formData.serviceAmount}
+                  value={formatThousand(formData.serviceAmount)}
                   placeholder="Enter Service Amount"
                   required
                   className="w-full"

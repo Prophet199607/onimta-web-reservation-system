@@ -52,6 +52,12 @@ export default function PackageInfo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredPackageInfo, setFilteredPackageInfo] = useState<Package[]>([]);
 
+  const formatThousand = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (!num) return "";
+    return Number(num).toLocaleString();
+  };
+
   const typeOptions = [
     { value: "Room", label: "Room" },
     { value: "Banquet", label: "Banquet" },
@@ -191,6 +197,48 @@ export default function PackageInfo() {
     fetchPackageInfo();
   }, []);
 
+  const fetchNextCode = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/PackageInfo/getNextCode`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          packageCode: data.nextCode || "",
+        }));
+      } else {
+        throw new Error("Failed to fetch Package code");
+      }
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to load package code");
+      setFormData((prev) => ({
+        ...prev,
+        packageCode: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
+
   // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
@@ -249,9 +297,16 @@ export default function PackageInfo() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    // Remove all commas for internal value
+    const rawValue = value.replace(/,/g, "");
+
+    // Allow only numbers
+    if (!/^\d*$/.test(rawValue)) return;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: rawValue,
     }));
   };
 
@@ -341,7 +396,7 @@ export default function PackageInfo() {
     }
   };
 
-  // handleRowClick function
+  // handle RowClick function
   const handleRowClick = (row: Package) => {
     // Determine type from boolean flags
     let type = "";
@@ -380,6 +435,7 @@ export default function PackageInfo() {
       type: "",
     });
     setEditingId(null);
+    fetchNextCode();
   };
 
   return (
@@ -539,7 +595,7 @@ export default function PackageInfo() {
                 </label>
                 <Input
                   name="roomAmount"
-                  value={formData.roomAmount}
+                  value={formatThousand(formData.roomAmount)}
                   placeholder="Enter Room Amount"
                   required
                   className="w-full"
@@ -555,7 +611,7 @@ export default function PackageInfo() {
                 </label>
                 <Input
                   name="roomPrice"
-                  value={formData.roomPrice}
+                  value={formatThousand(formData.roomPrice)}
                   placeholder="Enter Price"
                   required
                   className="w-full"
@@ -568,7 +624,7 @@ export default function PackageInfo() {
                 </label>
                 <Input
                   name="roomCost"
-                  value={formData.roomCost}
+                  value={formatThousand(formData.roomCost)}
                   placeholder="Enter Cost"
                   required
                   className="w-full"
@@ -584,7 +640,7 @@ export default function PackageInfo() {
                 </label>
                 <Input
                   name="foodAmount"
-                  value={formData.foodAmount}
+                  value={formatThousand(formData.foodAmount)}
                   placeholder="Enter Food Amount"
                   required
                   className="w-full"
@@ -597,7 +653,7 @@ export default function PackageInfo() {
                 </label>
                 <Input
                   name="beverageAmount"
-                  value={formData.beverageAmount}
+                  value={formatThousand(formData.beverageAmount)}
                   placeholder="Enter Beverage Amount"
                   required
                   className="w-full"

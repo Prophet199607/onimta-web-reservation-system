@@ -113,6 +113,48 @@ export default function TravelAgent() {
     fetchTravelAgents();
   }, []);
 
+  const fetchNextCode = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/TravelAgent/getNextCode`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          travelAgentCode: data.nextCode || "",
+        }));
+      } else {
+        throw new Error("Failed to fetch Travel Agent code");
+      }
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to load travel agent code");
+      setFormData((prev) => ({
+        ...prev,
+        travelAgentCode: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextCode();
+  }, []);
+
   // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
@@ -224,6 +266,7 @@ export default function TravelAgent() {
       description: "",
     });
     setEditingId(null);
+    fetchNextCode();
   };
 
   return (
