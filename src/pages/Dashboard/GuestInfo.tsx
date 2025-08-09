@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
@@ -6,135 +6,128 @@ import Select from "../../components/form/Select";
 import Checkbox from "../../components/form/input/Checkbox";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
+import API_BASE_URL from "../../config/api";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showLoadingToast,
+  dismissToast,
+} from "../../components/alert/ToastAlert";
+import { FiSearch, FiX } from "react-icons/fi";
 
 //Sample guest data
 interface GuestInfo {
-  id: number;
-  code: string;
-  type: string;
+  CustomerID: number;
+  customerCode: string;
+  customerTypeCode: string;
   title: string;
   name: string;
-  nic: string;
-  nationality: string;
-  country: string;
+  niC_PassportNo: string;
+  nationalityCode: string;
+  countryCode: string;
   mobile: string;
   telephone: string;
   email: string;
   address: string;
-  travelAgent: string;
+  travelAgentCode: string;
   creditLimit: string;
+  isActive: boolean;
+  isNew: boolean;
 }
 
-// Sample data for guest information
-const sampleGuestInfo: GuestInfo[] = [
-  {
-    id: 1,
-    code: "GUEST001",
-    type: "Mr.",
-    title: "Mr.",
-    name: "Amila Perera",
-    nic: "123456789V",
-    nationality: "Sinhalese",
-    country: "Sri Lanka",
-    mobile: "0712345678",
-    telephone: "0112345678",
-    email: "amila@gmail.com",
-    address: "123 Main Street, Colombo",
-    travelAgent: "Travel Agency A",
-    creditLimit: "100000",
-  },
-  {
-    id: 2,
-    code: "GUEST002",
-    type: "Mrs.",
-    title: "Mrs.",
-    name: "Nadeesha Silva",
-    nic: "987654321V",
-    nationality: "Sinhalese",
-    country: "Sri Lanka",
-    mobile: "0771234567",
-    telephone: "0119876543",
-    email: "nadeesha@gmail.com",
-    address: "456 Elm Street, Colombo",
-    travelAgent: "Travel Agency B",
-    creditLimit: "150000",
-  },
-];
+interface GuestTypes {
+  customerTypeCode: string;
+  description: string;
+}
+
+interface GuestTitles {
+  titleCode: string;
+  description: string;
+}
+
+interface GuestNationalities {
+  nationalityCode: string;
+  description: string;
+}
+
+interface GuestCountries {
+  countryCode: string;
+  description: string;
+}
+
+interface TravelAgents {
+  travelAgentCode: string;
+  description: string;
+}
 
 export default function GuestInfo() {
-  const [isChecked, setIsChecked] = useState(false);
+  const hasFetched = useRef(false);
+  const [formData, setFormData] = useState({
+    customerCode: "",
+    customerTypeCode: "",
+    title: "",
+    name: "",
+    niC_PassportNo: "",
+    nationalityCode: "",
+    countryCode: "",
+    mobile: "",
+    telephone: "",
+    email: "",
+    address: "",
+    travelAgentCode: "",
+    creditLimit: "",
+    isActive: true,
+    isNew: true,
+  });
+
+  const [isChecked, setIsChecked] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedGuestInfo, setSelectedGuestInfo] = useState<GuestInfo | null>(
+  const [editingCustomer, setEditingCustomer] = useState<GuestInfo | null>(
     null
   );
-  const [isEditMode, setIsEditMode] = useState(false);
-
-  // Individual form state variables
-  const [guestCode, setGuestCode] = useState("");
-  const [guestType, setGuestType] = useState("");
-  const [title, setTitle] = useState("");
-  const [name, setName] = useState("");
-  const [nicPassport, setNicPassport] = useState("");
-  const [nationality, setNationality] = useState("");
-  const [country, setCountry] = useState("");
-  const [mobileNo, setMobileNo] = useState("");
-  const [telephoneNo, setTelephoneNo] = useState("");
-  const [emailAddress, setEmailAddress] = useState("");
-  const [address, setAddress] = useState("");
-  const [travelAgent, setTravelAgent] = useState("");
-  const [creditLimit, setCreditLimit] = useState("");
-  // const [guestInfoList, setGuestInfoList] =
-  //   useState<GuestInfo[]>(samplePackages);
-
-  const guestTypeOptions = [
-    { value: "Mr.", label: "Mr." },
-    { value: "Mrs.", label: "Mrs." },
-    { value: "Dr.", label: "Dr." },
-  ];
-
-  const titleOptions = [
-    { value: "Mr.", label: "Mr." },
-    { value: "Mrs.", label: "Mrs." },
-    { value: "Dr.", label: "Dr." },
-  ];
-
-  const nationalityOptions = [
-    { value: "Sinhalese", label: "Sinhalese" },
-    { value: "Tamil", label: "Tamil" },
-    { value: "Muslim", label: "Muslim" },
-  ];
-
-  const countryOptions = [
-    { value: "Sri Lanka", label: "Sri Lanka" },
-    { value: "", label: "" },
-    { value: "", label: "" },
-  ];
-
-  const travelAgentOptions = [
-    { value: "Travel Agency A", label: "Travel Agency A" },
-    { value: "Travel Agency B", label: "Travel Agency B" },
-    { value: "Travel Agency C", label: "Travel Agency C" },
-  ];
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [guestInfo, setGuestInfo] = useState<GuestInfo[]>([]);
+  const [guestTypes, setGuestTypes] = useState<GuestTypes[]>([]);
+  const [guestTitles, setGuestTitles] = useState<GuestTitles[]>([]);
+  const [guestNationality, setGuestNationality] = useState<
+    GuestNationalities[]
+  >([]);
+  const [guestCountries, setGuestCountries] = useState<GuestCountries[]>([]);
+  const [travelAgent, setTravelAgent] = useState<TravelAgents[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredGuestInfo, setFilteredGuestInfo] = useState<GuestInfo[]>([]);
+  const [customerCode, setCustomerCode] = useState("");
 
   // Define columns for the DataTable
   const GuestInfoColumns: Column<GuestInfo>[] = [
     {
-      key: "code",
+      key: "customerCode",
       header: "Guest Code",
       sortable: true,
       searchable: true,
     },
     {
-      key: "type",
+      key: "customerTypeCode",
       header: "Guest Type",
       sortable: true,
       searchable: true,
+      render: (value) =>
+        getDescriptionByCode(
+          value,
+          guestTypes,
+          "customerTypeCode",
+          "description"
+        ),
     },
     {
       key: "title",
       header: "Guest Title",
       sortable: true,
       searchable: true,
+      render: (value) =>
+        getDescriptionByCode(value, guestTitles, "titleCode", "description"),
     },
     {
       key: "name",
@@ -143,22 +136,36 @@ export default function GuestInfo() {
       searchable: true,
     },
     {
-      key: "nic",
+      key: "niC_PassportNo",
       header: "Nic/Passport",
       sortable: true,
       searchable: true,
     },
     {
-      key: "nationality",
+      key: "nationalityCode",
       header: "Nationality",
       sortable: true,
       searchable: true,
+      render: (value) =>
+        getDescriptionByCode(
+          value,
+          guestNationality,
+          "nationalityCode",
+          "description"
+        ),
     },
     {
-      key: "country",
+      key: "countryCode",
       header: "Country",
       sortable: true,
       searchable: true,
+      render: (value) =>
+        getDescriptionByCode(
+          value,
+          guestCountries,
+          "countryCode",
+          "description"
+        ),
     },
     {
       key: "mobile",
@@ -185,10 +192,17 @@ export default function GuestInfo() {
       searchable: false,
     },
     {
-      key: "travelAgent",
+      key: "travelAgentCode",
       header: "Travel Agent",
       sortable: false,
       searchable: false,
+      render: (value) =>
+        getDescriptionByCode(
+          value,
+          travelAgent,
+          "travelAgentCode",
+          "description"
+        ),
     },
     {
       key: "creditLimit",
@@ -211,58 +225,585 @@ export default function GuestInfo() {
     };
 
     document.addEventListener("keydown", handleKeyDown);
+
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchAllData();
+    }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
-  useEffect(() => {
-    if (selectedGuestInfo) {
-      setGuestCode(selectedGuestInfo.code);
-      setGuestType(selectedGuestInfo.type);
-      setTitle(selectedGuestInfo.title);
-      setName(selectedGuestInfo.name);
-      setNicPassport(selectedGuestInfo.nic);
-      setNationality(selectedGuestInfo.nationality);
-      setCountry(selectedGuestInfo.country);
-      setMobileNo(selectedGuestInfo.mobile);
-      setTelephoneNo(selectedGuestInfo.telephone);
-      setEmailAddress(selectedGuestInfo.email);
-      setAddress(selectedGuestInfo.address);
-      setTravelAgent(selectedGuestInfo.travelAgent);
-      setCreditLimit(selectedGuestInfo.creditLimit);
-      setIsChecked(true);
-    }
-  }, [selectedGuestInfo]);
+  // Generic fetch function to handle different API calls
+  const fetchData = async (
+    endpoint: string,
+    options: {
+      onSuccess?: (data: any) => void;
+      onError?: (error: string) => void;
+      errorMessage?: string;
+      requiresAuth?: boolean;
+      method?: string;
+      body?: any;
+      allow404Empty?: boolean;
+    } = {}
+  ) => {
+    const {
+      onSuccess,
+      onError,
+      errorMessage = "Failed to fetch data",
+      requiresAuth = true,
+      method = "GET",
+      body,
+      allow404Empty = false,
+    } = options;
 
-  const handleRowSelect = (pkg: GuestInfo) => {
-    setSelectedGuestInfo(pkg);
-    setIsModalOpen(false);
-    setIsEditMode(true);
-    setIsModalOpen(false);
+    setLoading(true);
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (requiresAuth) {
+        const token =
+          localStorage.getItem("authToken") ||
+          sessionStorage.getItem("authToken");
+
+        if (!token) throw new Error("No authentication token found");
+
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const fetchOptions: RequestInit = { method, headers };
+
+      if (body && method !== "GET") {
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+
+      if (!response.ok) {
+        if (response.status === 404 && allow404Empty) {
+          if (onSuccess) onSuccess([]);
+          return [];
+        }
+
+        if (response.status === 401) {
+          throw new Error("Authentication failed. Please login again.");
+        } else if (response.status === 403) {
+          throw new Error("Access denied.");
+        } else {
+          throw new Error(`Failed to fetch data: ${response.status}`);
+        }
+      }
+
+      const data = await response.json();
+
+      if (onSuccess) {
+        onSuccess(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error(`Error fetching from ${endpoint}:`, error);
+      const errorMsg = error instanceof Error ? error.message : errorMessage;
+
+      if (onError) {
+        onError(errorMsg);
+      } else {
+        showErrorToast(errorMsg);
+      }
+
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGuestInfo = async () => {
+    await fetchData("/api/Customer/getall", {
+      allow404Empty: true,
+      onSuccess: (data) => {
+        const sortedData = Array.isArray(data)
+          ? [...data].sort((a, b) =>
+              String(a.customerCode).localeCompare(
+                String(b.customerCode),
+                undefined,
+                {
+                  numeric: true,
+                  sensitivity: "base",
+                }
+              )
+            )
+          : [];
+        setGuestInfo(sortedData);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setGuestInfo([]);
+      },
+      errorMessage: "Failed to fetch guest information",
+    });
+  };
+
+  const fetchNextCode = async () => {
+    await fetchData("/api/Customer/getNextCode", {
+      allow404Empty: true,
+      onSuccess: (data) => {
+        setCustomerCode(data.nextCode || "");
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setCustomerCode("");
+      },
+      errorMessage: "Failed to fetch guest code",
+    });
+  };
+
+  const fetchGuestTypes = async () => {
+    await fetchData("/api/CustomerType/getall", {
+      allow404Empty: true,
+      onSuccess: (data: any) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid guest type data received.");
+        }
+
+        const validTypes = data.filter(
+          (type: GuestTypes) => type.customerTypeCode && type.description
+        );
+
+        if (validTypes.length === 0) {
+          showErrorToast("No Guest Types found");
+        }
+
+        setGuestTypes(validTypes);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setGuestTypes([]);
+      },
+      errorMessage: "Failed to fetch guest types",
+    });
+  };
+
+  const fetchGuestTitile = async () => {
+    await fetchData("/api/Title/getall", {
+      allow404Empty: true,
+      onSuccess: (data: any) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid guest type data received.");
+        }
+
+        const validTitles = data.filter(
+          (type: GuestTitles) => type.titleCode && type.description
+        );
+
+        if (validTitles.length === 0) {
+          showErrorToast("No Guest Titles found");
+        }
+
+        setGuestTitles(validTitles);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setGuestTitles([]);
+      },
+      errorMessage: "Failed to fetch guest titles",
+    });
+  };
+
+  const fetchGuestNationality = async () => {
+    await fetchData("/api/Nationality/getall", {
+      allow404Empty: true,
+      onSuccess: (data: any) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid guest type data received.");
+        }
+
+        const validNationality = data.filter(
+          (type: GuestNationalities) => type.nationalityCode && type.description
+        );
+
+        if (validNationality.length === 0) {
+          showErrorToast("No Guest Nationality found");
+        }
+
+        setGuestNationality(validNationality);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setGuestNationality([]);
+      },
+      errorMessage: "Failed to fetch guest titles",
+    });
+  };
+
+  const fetchGuestCountry = async () => {
+    await fetchData("/api/Country/getall", {
+      allow404Empty: true,
+      onSuccess: (data: any) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid guest type data received.");
+        }
+
+        const validCountry = data.filter(
+          (type: GuestCountries) => type.countryCode && type.description
+        );
+
+        if (validCountry.length === 0) {
+          showErrorToast("No Guest Country found");
+        }
+
+        setGuestCountries(validCountry);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setGuestCountries([]);
+      },
+      errorMessage: "Failed to fetch guest countries",
+    });
+  };
+
+  const fetchTravelAgent = async () => {
+    await fetchData("/api/TravelAgent/getall", {
+      allow404Empty: true,
+      onSuccess: (data: any) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid guest type data received.");
+        }
+
+        const validTravelAgent = data.filter(
+          (type: TravelAgents) => type.travelAgentCode && type.description
+        );
+
+        if (validTravelAgent.length === 0) {
+          showErrorToast("No Travel Agent found");
+        }
+
+        setTravelAgent(validTravelAgent);
+      },
+      onError: (error) => {
+        showErrorToast(error);
+        setTravelAgent([]);
+      },
+      errorMessage: "Failed to fetch travel agents",
+    });
+  };
+
+  // Fetch all data at once
+  const fetchAllData = async () => {
+    try {
+      const results = await Promise.allSettled([
+        fetchGuestInfo(),
+        fetchNextCode(),
+        fetchGuestTypes(),
+        fetchGuestTitile(),
+        fetchGuestNationality(),
+        fetchGuestCountry(),
+        fetchTravelAgent(),
+      ]);
+
+      // Check if any critical operations failed
+      const failedOperations = results.filter(
+        (result) => result.status === "rejected"
+      );
+
+      if (failedOperations.length > 0) {
+        console.warn(
+          `${failedOperations.length} operations failed during initial load`
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+      showErrorToast("Failed to load some data. Please refresh the page.");
+    }
+  };
+
+  const guestTypeOptions = guestTypes.map((type) => ({
+    label: type.description,
+    value: type.customerTypeCode,
+  }));
+
+  const guestTitleOptions = guestTitles.map((type) => ({
+    label: type.description,
+    value: type.titleCode,
+  }));
+
+  const guestNationalityOptions = guestNationality.map((type) => ({
+    label: type.description,
+    value: type.nationalityCode,
+  }));
+
+  const guestCountryOptions = guestCountries.map((type) => ({
+    label: type.description,
+    value: type.countryCode,
+  }));
+
+  const travelAgentsOptions = travelAgent.map((type) => ({
+    label: type.description,
+    value: type.travelAgentCode,
+  }));
+
+  const getDescriptionByCode = (
+    code: string,
+    dataArray: any[],
+    codeField: string,
+    descField: string
+  ) => {
+    const item = dataArray.find((item) => item[codeField] === code);
+    return item ? item[descField] : code;
+  };
+
+  // Search Handling
+  const handleChange = (e: React.FormEvent) => {
+    const value = (e.target as HTMLInputElement).value;
+    setSearchTerm(value);
+
+    // Filter guest info based on search term
+    if (value.trim() === "") {
+      setFilteredGuestInfo([]);
+    } else {
+      const filtered = guestInfo.filter(
+        (guestInfo) =>
+          guestInfo.customerCode.toLowerCase().includes(value.toLowerCase()) ||
+          guestInfo.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredGuestInfo(filtered);
+    }
+  };
+
+  // Function to handle selecting a guest infomation from search results
+  const handleSearchResultClick = (guestInfo: GuestInfo) => {
+    setFormData({
+      customerCode: guestInfo.customerCode,
+      customerTypeCode: guestInfo.customerTypeCode,
+      title: guestInfo.title,
+      name: guestInfo.name,
+      niC_PassportNo: guestInfo.niC_PassportNo,
+      nationalityCode: guestInfo.nationalityCode,
+      countryCode: guestInfo.countryCode,
+      mobile: guestInfo.mobile,
+      telephone: guestInfo.telephone,
+      email: guestInfo.email,
+      address: guestInfo.address,
+      travelAgentCode: guestInfo.travelAgentCode,
+      creditLimit: guestInfo.creditLimit,
+      isActive: guestInfo.isActive || true,
+      isNew: false,
+    });
+    setEditingCustomer(guestInfo);
+    setIsEditing(true);
+    setIsChecked(guestInfo.isActive || true);
+    setSearchTerm("");
+    setFilteredGuestInfo([]);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setFilteredGuestInfo([]);
+    handleClear();
+  };
+
+  // Handle select field changes
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const validateForm = () => {
+    const requiredFields = [
+      { field: "customerTypeCode", label: "Customer Type" },
+      { field: "title", label: "Title" },
+      { field: "name", label: "Full Name" },
+      { field: "niC_PassportNo", label: "NIC/Passport Number" },
+      // { field: "email", label: "Email" },
+      // { field: "mobile", label: "Mobile Number" },
+      // { field: "address", label: "Address" },
+    ];
+
+    const errors: string[] = [];
+
+    requiredFields.forEach(({ field, label }) => {
+      const value = formData[field as keyof typeof formData];
+      if (
+        value === undefined ||
+        value === null ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
+        errors.push(`${label} is required`);
+      }
+    });
+
+    return errors;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showErrorToast(
+        `Please fill in required fields: ${validationErrors.join(", ")}`
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    const loadingToastId = showLoadingToast(
+      isEditing ? "Updating customer..." : "Adding customer..."
+    );
+
+    try {
+      const formDataToSend = {
+        customerCode: formData.customerCode,
+        customerTypeCode: formData.customerTypeCode,
+        title: formData.title,
+        name: formData.name,
+        niC_PassportNo: formData.niC_PassportNo,
+        nationalityCode: formData.nationalityCode,
+        countryCode: formData.countryCode,
+        mobile: formData.mobile,
+        telephone: formData.telephone,
+        email: formData.email,
+        address: formData.address,
+        travelAgentCode: formData.travelAgentCode,
+        creditLimit: formData.creditLimit,
+        isActive: isChecked,
+        isNew: formData.isNew,
+      };
+
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      if (!token) {
+        throw new Error("No authentication token found. Please login again.");
+      }
+
+      const url =
+        isEditing && editingCustomer
+          ? `${API_BASE_URL}/api/Customer/update/${editingCustomer.customerCode}`
+          : `${API_BASE_URL}/api/Customer/save`;
+
+      const method = isEditing ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formDataToSend),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage;
+
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage =
+            errorData.details ||
+            errorData.message ||
+            `Failed to ${isEditing ? "update" : "add"} customer`;
+        } catch {
+          errorMessage = `Server error: ${response.status} - ${response.statusText}`;
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      await response.json();
+
+      dismissToast(loadingToastId);
+      showSuccessToast(
+        `Customer ${isEditing ? "updated" : "added"} successfully!`
+      );
+
+      // Reset form and editing state
+      handleClear();
+      setIsEditing(false);
+      setEditingCustomer(null);
+
+      // Refresh guest info list
+      await fetchGuestInfo();
+    } catch (error) {
+      dismissToast(loadingToastId);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Failed to ${isEditing ? "update" : "add"} customer`;
+      showErrorToast(errorMessage);
+      console.error("Submit error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClear = () => {
-    setGuestCode("");
-    setGuestType("");
-    setTitle("");
-    setName("");
-    setNicPassport("");
-    setNationality("");
-    setCountry("");
-    setMobileNo("");
-    setTelephoneNo("");
-    setEmailAddress("");
-    setAddress("");
-    setTravelAgent("");
-    setCreditLimit("");
-    setIsChecked(false);
-    setIsModalOpen(false);
-    setIsEditMode(false);
-    setSelectedGuestInfo(null);
+    // Clear form data completely
+    setFormData({
+      customerCode: "",
+      customerTypeCode: "",
+      title: "",
+      name: "",
+      niC_PassportNo: "",
+      nationalityCode: "",
+      countryCode: "",
+      mobile: "",
+      telephone: "",
+      email: "",
+      address: "",
+      travelAgentCode: "",
+      creditLimit: "",
+      isActive: true,
+      isNew: true,
+    });
+
+    // Reset editing states
+    setEditingCustomer(null);
+    setIsEditing(false);
+    setIsChecked(true);
+    setSearchTerm("");
+    setFilteredGuestInfo([]);
+
+    // Fetch next code for new entry
+    fetchNextCode();
   };
 
-  const handleTypeChange = (_value: string) => {};
+  const handleRowClick = (row: GuestInfo) => {
+    setFormData({
+      customerCode: row.customerCode,
+      customerTypeCode: row.customerTypeCode,
+      title: row.title,
+      name: row.name,
+      niC_PassportNo: row.niC_PassportNo,
+      nationalityCode: row.nationalityCode,
+      countryCode: row.countryCode,
+      mobile: row.mobile,
+      telephone: row.telephone,
+      email: row.email,
+      address: row.address,
+      travelAgentCode: row.travelAgentCode,
+      creditLimit: row.creditLimit,
+      isActive: row.isActive || true,
+      isNew: false,
+    });
+    setEditingCustomer(row);
+    setIsEditing(true); // Set editing state to true
+    setIsChecked(row.isActive || true);
+    setIsModalOpen(false);
+  };
 
   return (
     <>
@@ -272,55 +813,102 @@ export default function GuestInfo() {
       />
 
       {/* Breadcrumb and Header container */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         {/* Breadcrumb */}
-        <nav>
-          <ol className="flex items-center space-x-2 text-sm">
+        <nav className="order-2 lg:order-1">
+          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
             <li>
-              <a href="/" className="text-gray-500 hover:text-gray-700">
+              <a
+                href="/dashboard"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              >
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-500">/</li>
+            <li className="text-gray-500 dark:text-gray-400">/</li>
             <li className="text-gray-900 dark:text-white">Guest Information</li>
           </ol>
         </nav>
 
         {/* Header */}
-        <h3 className="font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-          Manage Guest Information
-        </h3>
+        <div className="order-1 lg:order-2">
+          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
+            Manage Guest Information
+          </h3>
+        </div>
 
-        {/* Empty div for equal spacing */}
-        <div className="w-[120px]"></div>
+        {/* Empty div for equal spacing on desktop only */}
+        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
         <div className="mx-auto w-full max-w-[1000px]">
-          <form className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end w-full">
-              <div className="w-full sm:flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Guest Code <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="Enter Guest code"
-                  required
-                  className="w-full"
-                  value={guestCode}
-                  onChange={(e) => setGuestCode(e.target.value)}
-                />
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Search Field */}
+            <div className="w-full sm:w-2/5 sm:ml-auto relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleChange}
+                placeholder="Search by code or description...."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+              />
+
+              <div className="absolute inset-y-0 right-3 flex items-center">
+                {searchTerm ? (
+                  <FiX
+                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
+                    onClick={clearSearch}
+                  />
+                ) : (
+                  <FiSearch className="w-4 h-4 text-gray-400" />
+                )}
               </div>
 
-              <div className="w-full sm:w-auto mt-4 sm:mt-0">
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                  size="md"
-                >
-                  New
-                </Button>
-              </div>
+              {/* Search Results Dropdown */}
+              {searchTerm && filteredGuestInfo.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredGuestInfo.map((guestInfo) => (
+                    <div
+                      key={guestInfo.CustomerID}
+                      onClick={() => handleSearchResultClick(guestInfo)}
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {guestInfo.customerCode}
+                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {guestInfo.name}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* No Results Message */}
+              {searchTerm &&
+                filteredGuestInfo.length === 0 &&
+                guestInfo.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                      No guest information found
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <div className="flex-1 mt-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Guest Code
+              </label>
+              <Input
+                name="customerCode"
+                value={formData.customerCode || customerCode}
+                disabled
+                className="w-full bg-gray-100 cursor-not-allowed"
+                onChange={() => {}}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -329,11 +917,13 @@ export default function GuestInfo() {
                   Select Guest Type <span className="text-red-500">*</span>
                 </label>
                 <Select
+                  key={`guest-type-${formData.customerTypeCode}`}
                   options={guestTypeOptions}
+                  onChange={(value) =>
+                    handleSelectChange("customerTypeCode", value || "")
+                  }
                   placeholder="Select Guest Type"
-                  className="mb-0 w-full"
-                  value={guestType}
-                  onChange={handleTypeChange}
+                  value={formData.customerTypeCode}
                 />
               </div>
               <div>
@@ -341,11 +931,11 @@ export default function GuestInfo() {
                   Title <span className="text-red-500">*</span>
                 </label>
                 <Select
-                  options={titleOptions}
+                  key={`title-${formData.title}`}
+                  options={guestTitleOptions}
+                  onChange={(value) => handleSelectChange("title", value || "")}
                   placeholder="Select Title"
-                  className="mb-0 w-full"
-                  onChange={handleTypeChange}
-                  value={title}
+                  value={formData.title}
                 />
               </div>
             </div>
@@ -356,11 +946,12 @@ export default function GuestInfo() {
                   Name <span className="text-red-500">*</span>
                 </label>
                 <Input
+                  name="name"
+                  value={formData.name}
                   placeholder="Enter Name"
                   required
                   className="w-full"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
@@ -368,11 +959,12 @@ export default function GuestInfo() {
                   NIC/Passport <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  placeholder="Enter NIC/Passport"
+                  name="niC_PassportNo"
+                  value={formData.niC_PassportNo}
+                  placeholder="Enter Passport No"
                   required
                   className="w-full"
-                  value={nicPassport}
-                  onChange={(e) => setNicPassport(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -380,26 +972,30 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Nationality <span className="text-red-500">*</span>
+                  Select Nationality
                 </label>
                 <Select
-                  options={nationalityOptions}
+                  key={`nationality-${formData.nationalityCode}`}
+                  options={guestNationalityOptions}
+                  onChange={(value) =>
+                    handleSelectChange("nationalityCode", value || "")
+                  }
                   placeholder="Select Nationality"
-                  className="mb-0 w-full"
-                  value={nationality}
-                  onChange={handleTypeChange}
+                  value={formData.nationalityCode}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Country <span className="text-red-500">*</span>
+                  Select Country
                 </label>
                 <Select
-                  options={countryOptions}
+                  key={`country-${formData.countryCode}`}
+                  options={guestCountryOptions}
+                  onChange={(value) =>
+                    handleSelectChange("countryCode", value || "")
+                  }
                   placeholder="Select Country"
-                  className="mb-0 w-full"
-                  value={country}
-                  onChange={handleTypeChange}
+                  value={formData.countryCode}
                 />
               </div>
             </div>
@@ -407,26 +1003,26 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mobile No <span className="text-red-500">*</span>
+                  Mobile No
                 </label>
                 <Input
+                  name="mobile"
+                  value={formData.mobile}
                   placeholder="Enter Mobile No"
-                  required
                   className="w-full"
-                  value={mobileNo}
-                  onChange={(e) => setMobileNo(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Telephone No <span className="text-red-500">*</span>
+                  Telephone No
                 </label>
                 <Input
+                  name="telephone"
+                  value={formData.telephone}
                   placeholder="Enter Telephone No"
-                  required
                   className="w-full"
-                  value={telephoneNo}
-                  onChange={(e) => setTelephoneNo(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -434,26 +1030,26 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Address <span className="text-red-500">*</span>
+                  Email Address
                 </label>
                 <Input
+                  name="email"
+                  value={formData.email}
                   placeholder="Enter Email Address"
-                  required
                   className="w-full"
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Address <span className="text-red-500">*</span>
+                  Address
                 </label>
                 <Input
+                  name="address"
+                  value={formData.address}
                   placeholder="Enter Address"
-                  required
                   className="w-full"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -461,26 +1057,28 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Travel Agent <span className="text-red-500">*</span>
+                  Select Travel Agent
                 </label>
                 <Select
-                  options={travelAgentOptions}
+                  key={`travel-agent-${formData.travelAgentCode}`}
+                  options={travelAgentsOptions}
+                  onChange={(value) =>
+                    handleSelectChange("travelAgentCode", value || "")
+                  }
                   placeholder="Select Travel Agent"
-                  className="mb-0 w-full"
-                  value={travelAgent}
-                  onChange={handleTypeChange}
+                  value={formData.travelAgentCode}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Credit Limit <span className="text-red-500">*</span>
+                  Credit Limit
                 </label>
                 <Input
+                  name="creditLimit"
+                  value={formData.creditLimit}
                   placeholder="Enter Credit Limit"
-                  required
                   className="w-full"
-                  value={creditLimit}
-                  onChange={(e) => setCreditLimit(e.target.value)}
+                  onChange={handleInputChange}
                 />
               </div>
               <div className="flex items-center gap-3 mt-6">
@@ -491,25 +1089,34 @@ export default function GuestInfo() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
               <Button
                 type="submit"
-                className={`w-full sm:w-48 text-white ${
-                  isEditMode
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 border-blue-300"
-                }`}
+                className={`w-50 sm:w-auto sm:min-w-[180px] ${
+                  isEditing
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
                 size="md"
+                disabled={isSubmitting}
               >
-                {isEditMode ? "Update" : "Submit"}
+                {isSubmitting
+                  ? isEditing
+                    ? "Updating..."
+                    : "Adding..."
+                  : isEditing
+                  ? "Update"
+                  : "Submit"}
               </Button>
+
               <Button
                 type="button"
-                onClick={handleClear}
                 size="md"
-                className="w-full sm:w-48 bg-gray-500 hover:bg-gray-600 text-white"
+                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleClear}
+                disabled={isSubmitting}
               >
-                Clear
+                {isEditing ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -520,17 +1127,20 @@ export default function GuestInfo() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Package Information"
+        title="Select Guest Information"
         size="2xl"
       >
         <DataTable
-          data={sampleGuestInfo}
+          data={guestInfo}
           columns={GuestInfoColumns}
+          loading={loading}
           searchable={true}
           pagination={true}
-          onRowClick={handleRowSelect}
+          sortable={true}
+          pageSize={10}
+          onRowClick={handleRowClick}
           className="border-0 shadow-none"
-          emptyMessage="No items available"
+          emptyMessage="No data available"
         />
       </Modal>
     </>
