@@ -99,36 +99,47 @@ export default function PackageInfo() {
       header: "Duration (Hrs)",
       sortable: true,
       searchable: true,
+      align: "center",
     },
     {
       key: "roomAmount",
       header: "Room Amount",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "roomPrice",
       header: "Price",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "roomCost",
       header: "Cost",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "foodAmount",
       header: "Food Amount",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "beverageAmount",
       header: "Beverage Amount",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "remarks",
@@ -714,7 +725,8 @@ export default function PackageInfo() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Package Information"
-        size="2xl"
+        size="auto"
+        columnCount={packageColumns.length}
       >
         <DataTable
           data={packageInfo}

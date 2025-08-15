@@ -460,7 +460,8 @@ export default function SetupStyleTypes() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Event Type"
-        size="2xl"
+        size="auto"
+        columnCount={setupStyleTypeColumns.length}
       >
         <DataTable
           data={setupStyleTypes}

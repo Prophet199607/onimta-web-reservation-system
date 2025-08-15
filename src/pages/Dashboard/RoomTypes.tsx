@@ -454,7 +454,8 @@ export default function RoomTypes() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Room Type"
-        size="2xl"
+        size="auto"
+        columnCount={roomTypeColumns.length}
       >
         <DataTable
           data={roomTypes}

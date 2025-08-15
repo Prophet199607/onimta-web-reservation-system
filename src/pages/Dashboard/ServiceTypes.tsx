@@ -93,12 +93,15 @@ export default function ServiceTypes() {
       header: "Quantity",
       sortable: true,
       searchable: true,
+      align: "center",
     },
     {
       key: "serviceAmount",
       header: "Amount",
       sortable: true,
       searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
     },
     {
       key: "remarks",
@@ -608,7 +611,8 @@ export default function ServiceTypes() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Service Type Information"
-        size="2xl"
+        size="auto"
+        columnCount={serviceColumn.length}
       >
         <DataTable
           data={servicetype}

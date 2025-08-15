@@ -428,7 +428,8 @@ export default function TravelAgent() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Travel Agent"
-        size="2xl"
+        size="auto"
+        columnCount={travelAgentColumns.length}
       >
         <DataTable
           data={travelAgents}

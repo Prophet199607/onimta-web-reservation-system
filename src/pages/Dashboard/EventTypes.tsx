@@ -457,7 +457,8 @@ export default function EventTypes() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select Event Type"
-        size="2xl"
+        size="auto"
+        columnCount={eventTypeColumns.length}
       >
         <DataTable
           data={eventTypes}
