@@ -14,6 +14,8 @@ import {
   dismissToast,
 } from "../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
+// import FileInput from "../../components/form/input/FileInput";
+import Label from "../../components/form/Label";
 
 //Sample guest data
 interface GuestInfo {
@@ -33,6 +35,8 @@ interface GuestInfo {
   creditLimit: string;
   isActive: boolean;
   isNew: boolean;
+  whatsapp: string;
+  remark: string;
 }
 
 interface GuestTypes {
@@ -76,6 +80,8 @@ export default function GuestInfo() {
     address: "",
     travelAgentCode: "",
     creditLimit: "",
+    whatsapp: "",
+    remark: "",
     isActive: true,
     isNew: true,
   });
@@ -99,6 +105,8 @@ export default function GuestInfo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredGuestInfo, setFilteredGuestInfo] = useState<GuestInfo[]>([]);
   const [customerCode, setCustomerCode] = useState("");
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [pendingGuestData, setPendingGuestData] = useState<any>(null);
 
   // Define columns for the DataTable
   const GuestInfoColumns: Column<GuestInfo>[] = [
@@ -176,6 +184,12 @@ export default function GuestInfo() {
     {
       key: "telephone",
       header: "Telephone No",
+      sortable: true,
+      searchable: true,
+    },
+    {
+      key: "whatsapp",
+      header: "Whatsapp No",
       sortable: true,
       searchable: true,
     },
@@ -588,6 +602,8 @@ export default function GuestInfo() {
       address: guestInfo.address,
       travelAgentCode: guestInfo.travelAgentCode,
       creditLimit: guestInfo.creditLimit,
+      whatsapp: guestInfo.whatsapp,
+      remark: guestInfo.remark,
       isActive: guestInfo.isActive || true,
       isNew: false,
     });
@@ -620,15 +636,30 @@ export default function GuestInfo() {
     }));
   };
 
+  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setFormData((prev) => ({
+        ...prev,
+        // image: file.name,
+      }));
+    }
+  };
+
   const validateForm = () => {
     const requiredFields = [
       { field: "customerTypeCode", label: "Customer Type" },
       { field: "title", label: "Title" },
       { field: "name", label: "Full Name" },
-      { field: "niC_PassportNo", label: "NIC/Passport Number" },
-      // { field: "email", label: "Email" },
-      // { field: "mobile", label: "Mobile Number" },
-      // { field: "address", label: "Address" },
+      { field: "mobile", label: "Mobile Number" },
     ];
 
     const errors: string[] = [];
@@ -658,30 +689,26 @@ export default function GuestInfo() {
       return;
     }
 
+    const formDataToSend = {
+      ...formData,
+      isActive: isChecked,
+    };
+
+    // Just stage the form data for saving
+    setPendingGuestData(formDataToSend);
+    setShowPrintModal(true);
+  };
+
+  // Function to handle the actual save operation
+  const handleSaveGuest = async (shouldOpenPrintPreview: boolean = false) => {
+    if (!pendingGuestData) return;
+
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
       isEditing ? "Updating customer..." : "Adding customer..."
     );
 
     try {
-      const formDataToSend = {
-        customerCode: formData.customerCode,
-        customerTypeCode: formData.customerTypeCode,
-        title: formData.title,
-        name: formData.name,
-        niC_PassportNo: formData.niC_PassportNo,
-        nationalityCode: formData.nationalityCode,
-        countryCode: formData.countryCode,
-        mobile: formData.mobile,
-        telephone: formData.telephone,
-        email: formData.email,
-        address: formData.address,
-        travelAgentCode: formData.travelAgentCode,
-        creditLimit: formData.creditLimit,
-        isActive: isChecked,
-        isNew: formData.isNew,
-      };
-
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
@@ -697,13 +724,21 @@ export default function GuestInfo() {
 
       const method = isEditing ? "PUT" : "POST";
 
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      if (!(pendingGuestData instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+      }
+
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formDataToSend),
+        headers,
+        body:
+          pendingGuestData instanceof FormData
+            ? pendingGuestData
+            : JSON.stringify(pendingGuestData),
       });
 
       if (!response.ok) {
@@ -723,20 +758,45 @@ export default function GuestInfo() {
         throw new Error(errorMessage);
       }
 
-      await response.json();
+      // Use the saved/updated payload returned by the API for printing
+      const savedData = await response.json();
 
       dismissToast(loadingToastId);
       showSuccessToast(
         `Customer ${isEditing ? "updated" : "added"} successfully!`
       );
 
+      // Prepare data for print *from the saved server response*
+      const printPayload = {
+        ...pendingGuestData,
+        ...savedData,
+      };
+
+      // Store guest data for the print page
+      sessionStorage.setItem("guestPrintData", JSON.stringify(printPayload));
+
+      // Store lookup data for print
+      sessionStorage.setItem(
+        "guestLookupData",
+        JSON.stringify({
+          guestTypes,
+          guestNationality,
+          guestCountries,
+          travelAgent,
+        })
+      );
+
       // Reset form and editing state
       handleClear();
       setIsEditing(false);
       setEditingCustomer(null);
-
-      // Refresh guest info list
+      setPendingGuestData(null);
       await fetchGuestInfo();
+
+      // After a successful save, optionally open the print preview
+      if (shouldOpenPrintPreview) {
+        window.open(`/customer-print`, "_blank", "width=800,height=600");
+      }
     } catch (error) {
       dismissToast(loadingToastId);
       const errorMessage =
@@ -747,6 +807,7 @@ export default function GuestInfo() {
       console.error("Submit error:", error);
     } finally {
       setIsSubmitting(false);
+      setShowPrintModal(false);
     }
   };
 
@@ -766,6 +827,8 @@ export default function GuestInfo() {
       address: "",
       travelAgentCode: "",
       creditLimit: "",
+      whatsapp: "",
+      remark: "",
       isActive: true,
       isNew: true,
     });
@@ -796,11 +859,13 @@ export default function GuestInfo() {
       address: row.address,
       travelAgentCode: row.travelAgentCode,
       creditLimit: row.creditLimit,
+      whatsapp: row.whatsapp,
+      remark: row.remark,
       isActive: row.isActive || true,
       isNew: false,
     });
     setEditingCustomer(row);
-    setIsEditing(true); // Set editing state to true
+    setIsEditing(true);
     setIsChecked(row.isActive || true);
     setIsModalOpen(false);
   };
@@ -899,9 +964,7 @@ export default function GuestInfo() {
             </div>
 
             <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Guest Code
-              </label>
+              <Label>Guest Code</Label>
               <Input
                 name="customerCode"
                 value={formData.customerCode || customerCode}
@@ -913,9 +976,9 @@ export default function GuestInfo() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Label>
                   Select Guest Type <span className="text-red-500">*</span>
-                </label>
+                </Label>
                 <Select
                   key={`guest-type-${formData.customerTypeCode}`}
                   options={guestTypeOptions}
@@ -927,9 +990,9 @@ export default function GuestInfo() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Label>
                   Title <span className="text-red-500">*</span>
-                </label>
+                </Label>
                 <Select
                   key={`title-${formData.title}`}
                   options={guestTitleOptions}
@@ -956,7 +1019,7 @@ export default function GuestInfo() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  NIC/Passport <span className="text-red-500">*</span>
+                  NIC/Passport
                 </label>
                 <Input
                   name="niC_PassportNo"
@@ -1003,7 +1066,7 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mobile No
+                  Mobile No <span className="text-red-500">*</span>
                 </label>
                 <Input
                   name="mobile"
@@ -1030,6 +1093,18 @@ export default function GuestInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Whatsapp No
+                </label>
+                <Input
+                  name="whatsapp"
+                  value={formData.whatsapp}
+                  placeholder="Enter Whatsapp No"
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email Address
                 </label>
                 <Input
@@ -1040,6 +1115,9 @@ export default function GuestInfo() {
                   onChange={handleInputChange}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Address
@@ -1052,9 +1130,6 @@ export default function GuestInfo() {
                   onChange={handleInputChange}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Travel Agent
@@ -1069,6 +1144,9 @@ export default function GuestInfo() {
                   value={formData.travelAgentCode}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Credit Limit
@@ -1087,6 +1165,24 @@ export default function GuestInfo() {
                   Active
                 </span>
               </div>
+              {/* <div>
+                <Label>Upload file</Label>
+                <FileInput
+                  onChange={handleFileChange}
+                  className="custom-class"
+                />
+              </div> */}
+            </div>
+            <div>
+              <Label>Remark</Label>
+              <textarea
+                name="remark"
+                value={formData.remark}
+                className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                rows={4}
+                placeholder="Enter your remarks here"
+                onChange={handleTextAreaChange}
+              />
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
@@ -1142,6 +1238,53 @@ export default function GuestInfo() {
           className="border-0 shadow-none"
           emptyMessage="No data available"
         />
+      </Modal>
+
+      {/* Print Confirmation Modal */}
+      <Modal
+        isOpen={showPrintModal}
+        onClose={() => {
+          setShowPrintModal(false);
+          setPendingGuestData(null);
+        }}
+        title="Print Confirmation"
+        size="sm"
+      >
+        <div className="p-4">
+          <div className="mb-6">
+            <p className="text-gray-700 dark:text-gray-300">
+              Do you want to print the guest information before saving?
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
+            {/* YES → Save first, then open print preview with saved data */}
+            <Button
+              type="button"
+              className="w-full sm:w-auto sm:min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white"
+              size="md"
+              onClick={() => {
+                handleSaveGuest(true);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Processing..." : "Yes, Print"}
+            </Button>
+
+            {/* NO → Save directly without opening print */}
+            <Button
+              type="button"
+              size="md"
+              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-500 hover:bg-gray-600 text-white"
+              onClick={() => {
+                handleSaveGuest(false);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Processing..." : "No, Skip Print"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </>
   );
