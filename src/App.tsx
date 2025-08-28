@@ -17,6 +17,8 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import Rooms from "./pages/Dashboard/Rooms";
+import Banquets from "./pages/Dashboard/Banquets";
 import RoomTypes from "./pages/Dashboard/RoomTypes";
 import EventTypes from "./pages/Dashboard/EventTypes";
 import PackageInfo from "./pages/Dashboard/PackageInfo";
@@ -28,6 +30,9 @@ import InOut from "./pages/Dashboard/InOut";
 import RoomReservation from "./pages/Dashboard/RoomReservation";
 import BanquetReservation from "./pages/Dashboard/BanquetReservation";
 import Calendar from "./pages/Dashboard/Calendar";
+
+// Print Routes
+import Print from "./pages/Prints/CustomerPrint";
 
 export default function App() {
   return (
@@ -43,6 +48,8 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/dashboard" element={<Home />} />
             {/* Master Entries */}
+            <Route path="/rooms" element={<Rooms />} />
+            <Route path="/banquets" element={<Banquets />} />
             <Route path="/room-types" element={<RoomTypes />} />
             <Route path="/event-types" element={<EventTypes />} />
             <Route path="/package-info" element={<PackageInfo />} />
@@ -84,9 +91,8 @@ export default function App() {
             <Route path="/bar-chart" element={<BarChart />} />
           </Route>
 
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          {/* Print */}
+          <Route path="/customer-print" element={<Print />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
