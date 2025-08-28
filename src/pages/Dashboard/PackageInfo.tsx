@@ -329,11 +329,39 @@ export default function PackageInfo() {
     }));
   };
 
+  const validateForm = () => {
+    const requiredFields = [
+      { field: "packageName", label: "Package Name" },
+      { field: "type", label: "Package Type" },
+      { field: "roomAmount", label: "Room Amount" },
+      { field: "foodAmount", label: "Food Amount" },
+      { field: "beverageAmount", label: "Beverage Amount" },
+    ];
+
+    const errors: string[] = [];
+
+    requiredFields.forEach(({ field, label }) => {
+      const value = formData[field as keyof typeof formData];
+      if (
+        value === undefined ||
+        value === null ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
+        errors.push(`${label} is required`);
+      }
+    });
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.packageName.trim() || !formData.type.trim()) {
-      showErrorToast("Please fill in required fields");
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showErrorToast(
+        `Please fill in required fields: ${validationErrors.join(", ")}`
+      );
       return;
     }
 
