@@ -1,111 +1,66 @@
-import { useState, useEffect, useRef } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import Select from "../../components/form/Select";
-import API_BASE_URL from "../../config/api";
+import React, { useState, useEffect } from "react";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
-// Sample room types data
-interface Rooms {
-  roomID: number;
-  roomTypeCode: string;
-  roomCode: string;
-  roomSize: string;
-  roomStatus: string;
+// Sample event types data
+interface EventType {
+  eventTypeID: number;
+  eventCode: string;
   description: string;
   remarks: string;
-  isRoom: boolean;
-  isBanquet: boolean;
 }
 
-export default function Rooms() {
+export default function EventTypes() {
   const [formData, setFormData] = useState({
-    roomTypeCode: "",
-    roomCode: "",
-    roomSize: "",
-    roomStatus: "",
+    eventCode: "",
     description: "",
     remarks: "",
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [rooms, setRooms] = useState<Rooms[]>([]);
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredRooms, setFilteredRooms] = useState<Rooms[]>([]);
-  const [roomTypeOptions, setRoomTypeOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
-  const hasFetched = useRef(false);
-
-  const roomStatusOptions = [
-    { value: "VACANT", label: "Vacant" },
-    { value: "OCCUPIED", label: "Occupied" },
-    { value: "RESERVED", label: "Reserved" },
-    { value: "OUT_OF_ORDER", label: "Out of Order" },
-    { value: "CLEANING", label: "Cleaning in Progress" },
-    { value: "BLOCKED", label: "Blocked" },
-  ];
+  const [filteredEventTypes, setFilteredEventTypes] = useState<EventType[]>([]);
 
   // Define columns for the DataTable
-  const roomColumns: Column<Rooms>[] = [
+  const eventTypeColumns: Column<EventType>[] = [
     {
       key: "index",
       header: "#",
       width: "20",
       sortable: false,
-      render: (_value: any, _row: Rooms, index: number) => (
+      render: (_value: any, _row: EventType, index: number) => (
         <span className="font-medium text-gray-600 dark:text-gray-400">
           {index + 1}
         </span>
       ),
     },
     {
-      key: "roomTypeCode",
-      header: "Room Type",
-      sortable: true,
-      searchable: true,
-      width: "100px",
-      render: (value: string) =>
-        roomTypeOptions.find((opt) => opt.value === value)?.label || value,
-    },
-    {
-      key: "roomCode",
-      header: "Room Code",
+      key: "eventCode",
+      header: "Code",
       sortable: true,
       searchable: true,
       width: "100px",
     },
     {
       key: "description",
-      header: "Room Name",
+      header: "Name",
       sortable: true,
       searchable: true,
-    },
-    {
-      key: "roomSize",
-      header: "Room Size",
-      sortable: true,
-      searchable: true,
-      width: "100px",
-    },
-    {
-      key: "roomStatus",
-      header: "Room Status",
-      sortable: true,
-      searchable: true,
-      width: "100px",
     },
     {
       key: "remarks",
@@ -115,15 +70,15 @@ export default function Rooms() {
     },
   ];
 
-  // Handle F3 key press
+  //Handle f3 Key press
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F3") {
         event.preventDefault();
         setIsModalOpen(true);
       }
-      // Handle Escape key to close modal
       if (event.key === "Escape") {
+        event.preventDefault();
         setIsModalOpen(false);
       }
     };
@@ -134,13 +89,13 @@ export default function Rooms() {
     };
   }, []);
 
-  const fetchRooms = async () => {
+  const fetchEventTypes = async () => {
     setLoading(true);
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/Room/getall`, {
+      const response = await fetch(`${API_BASE_URL}/api/EventType/getall`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -148,54 +103,21 @@ export default function Rooms() {
 
       if (response.ok) {
         const data = await response.json();
-        // Filter only rooms where isRoom is true
-        const roomsOnly = Array.isArray(data)
-          ? data.filter((room: Rooms) => room.isRoom === true)
-          : [];
-        setRooms(roomsOnly);
+        setEventTypes(Array.isArray(data) ? data : []);
       } else {
-        throw new Error("Failed to fetch Rooms");
+        throw new Error("Failed to fetch Event Types");
       }
     } catch (error) {
-      showErrorToast("Failed to load rooms");
-      setRooms([]);
+      showErrorToast("Failed to load event types");
+      setEventTypes([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchRoomTypes = async () => {
-    setLoading(true);
-    try {
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/RoomType/getall`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        // map API response -> { value, label }
-        const options = data.map((rt: any) => ({
-          value: rt.roomTypeCode, // what backend expects
-          label: rt.description, // what user sees
-        }));
-
-        setRoomTypeOptions(options);
-      } else {
-        throw new Error("Failed to fetch Room Types");
-      }
-    } catch (error) {
-      showErrorToast("Failed to load room types");
-      setRoomTypeOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchEventTypes();
+  }, []);
 
   const fetchNextCode = async () => {
     setLoading(true);
@@ -204,14 +126,8 @@ export default function Rooms() {
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
 
-      // Query parameters for isRoom=true and isBanquet=false
-      const queryParams = new URLSearchParams({
-        isRoom: "true",
-        isBanquet: "false",
-      });
-
       const response = await fetch(
-        `${API_BASE_URL}/api/Room/getNextroomCode?${queryParams}`,
+        `${API_BASE_URL}/api/EventType/getNextCode`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -221,19 +137,20 @@ export default function Rooms() {
 
       if (response.ok) {
         const data = await response.json();
+
         setFormData((prev) => ({
           ...prev,
-          roomCode: data.nextCode || "",
+          eventCode: data.nextCode || "",
         }));
       } else {
-        throw new Error("Failed to fetch Room code");
+        throw new Error("Failed to fetch Event Type code");
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load room code");
+      showErrorToast("Failed to load event type code");
       setFormData((prev) => ({
         ...prev,
-        roomCode: "",
+        eventCode: "",
       }));
     } finally {
       setLoading(false);
@@ -241,12 +158,7 @@ export default function Rooms() {
   };
 
   useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      fetchNextCode();
-      fetchRooms();
-      fetchRoomTypes();
-    }
+    fetchNextCode();
   }, []);
 
   // Search Handling
@@ -254,98 +166,86 @@ export default function Rooms() {
     const value = (e.target as HTMLInputElement).value;
     setSearchTerm(value);
 
-    // Filter room types based on search term
+    // Filter event types based on search term
     if (value.trim() === "") {
-      setFilteredRooms([]);
+      setFilteredEventTypes([]);
     } else {
-      const filtered = rooms.filter(
-        (room) =>
-          room.description.toLowerCase().includes(value.toLowerCase()) ||
-          room.roomCode.toLowerCase().includes(value.toLowerCase())
+      const filtered = eventTypes.filter(
+        (eventType) =>
+          eventType.description.toLowerCase().includes(value.toLowerCase()) ||
+          eventType.eventCode.toLowerCase().includes(value.toLowerCase())
       );
-      setFilteredRooms(filtered);
+      setFilteredEventTypes(filtered);
     }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredRooms([]);
+    setFilteredEventTypes([]);
     handleClear();
   };
 
-  // Function to handle selecting a room from search results
-  const handleSearchResultClick = (room: Rooms) => {
+  // Function to handle selecting a room type from search results
+  const handleSearchResultClick = (eventType: EventType) => {
     setFormData({
-      roomTypeCode: room.roomTypeCode,
-      roomCode: room.roomCode,
-      roomSize: room.roomSize,
-      roomStatus: room.roomStatus,
-      description: room.description,
-      remarks: room.remarks,
+      eventCode: eventType.eventCode,
+      description: eventType.description,
+      remarks: eventType.remarks,
     });
-    setEditingCode(room.roomCode);
+    setEditingId(eventType.eventTypeID);
     setSearchTerm("");
-    setFilteredRooms([]);
+    setFilteredEventTypes([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.description.trim()) {
+      showErrorToast("Please fill event name");
+      return;
+    }
+
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
-      editingCode ? "Updating Room ..." : "Adding Room ..."
+      editingId ? "Updating Event Type..." : "Adding Event Type..."
     );
 
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
-      const url = editingCode
-        ? `${API_BASE_URL}/api/Room/update/${editingCode}`
-        : `${API_BASE_URL}/api/Room/add`;
-
-      const payload = {
-        ...formData,
-        isRoom: true,
-        isBanquet: false,
-      };
+      const url = editingId
+        ? `${API_BASE_URL}/api/EventType/Update/${editingId}`
+        : `${API_BASE_URL}/api/EventType/add`;
 
       const response = await fetch(url, {
-        method: editingCode ? "PUT" : "POST",
+        method: editingId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         dismissToast(loadingToastId);
         showSuccessToast(
-          editingCode
-            ? "Room updated successfully!"
-            : "Room added successfully!"
+          editingId
+            ? "Event Type updated successfully!"
+            : "Event Type added successfully!"
         );
         handleClear();
-        fetchRooms();
+        fetchEventTypes();
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       dismissToast(loadingToastId);
-      console.error("Error saving room:", error);
-      showErrorToast("Room Code already exists");
+      console.error("Error saving event type:", error);
+      showErrorToast("Event Type Code already exists");
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Handle select field changes
-  const handleSelectChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,35 +264,32 @@ export default function Rooms() {
     }));
   };
 
-  const handleRowClick = (row: Rooms) => {
+  const handleRowClick = (row: EventType) => {
     setFormData({
-      roomTypeCode: row.roomTypeCode,
-      roomCode: row.roomCode,
-      roomSize: row.roomSize,
-      roomStatus: row.roomStatus,
+      eventCode: row.eventCode,
       description: row.description,
       remarks: row.remarks,
     });
-    setEditingCode(row.roomCode);
+    setEditingId(row.eventTypeID);
     setIsModalOpen(false);
   };
 
   const handleClear = () => {
     setFormData({
-      roomTypeCode: "",
-      roomCode: "",
-      roomSize: "",
-      roomStatus: "",
+      eventCode: "",
       description: "",
       remarks: "",
     });
-    setEditingCode(null);
+    setEditingId(null);
     fetchNextCode();
   };
 
   return (
     <>
-      <PageMeta title="Rooms - Reservation System" description="Manage rooms" />
+      <PageMeta
+        title="Event Types - Reservation System"
+        description="Manage event types"
+      />
 
       {/* Breadcrumb and Header container */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
@@ -408,14 +305,14 @@ export default function Rooms() {
               </a>
             </li>
             <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Rooms</li>
+            <li className="text-gray-900 dark:text-white">Event Types</li>
           </ol>
         </nav>
 
         {/* Header */}
         <div className="order-1 lg:order-2">
           <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Rooms
+            Manage Event Types
           </h3>
         </div>
 
@@ -448,20 +345,20 @@ export default function Rooms() {
               </div>
 
               {/* Search Results Dropdown */}
-              {searchTerm && filteredRooms.length > 0 && (
+              {searchTerm && filteredEventTypes.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredRooms.map((room) => (
+                  {filteredEventTypes.map((eventType) => (
                     <div
-                      key={room.roomCode}
-                      onClick={() => handleSearchResultClick(room)}
+                      key={eventType.eventTypeID}
+                      onClick={() => handleSearchResultClick(eventType)}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {room.roomCode}
+                          {eventType.eventCode}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {room.description}
+                          {eventType.description}
                         </span>
                       </div>
                     </div>
@@ -470,68 +367,28 @@ export default function Rooms() {
               )}
 
               {/* No Results Message */}
-              {searchTerm && filteredRooms.length === 0 && rooms.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
-                  <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                    No rooms found
+              {searchTerm &&
+                filteredEventTypes.length === 0 &&
+                eventTypes.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                      No event types found
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Code
-                </label>
-                <Input
-                  name="roomCode"
-                  value={formData.roomCode}
-                  readonly
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Type
-                </label>
-                <Select
-                  options={roomTypeOptions}
-                  onChange={(value) =>
-                    handleSelectChange("roomTypeCode", value)
-                  }
-                  placeholder="Select Type"
-                  value={formData.roomTypeCode}
-                  className="mb-0"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Size
-                </label>
-                <Input
-                  name="roomSize"
-                  value={formData.roomSize}
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Status
-                </label>
-                <Select
-                  options={roomStatusOptions}
-                  onChange={(value) => handleSelectChange("roomStatus", value)}
-                  placeholder="Select Type"
-                  value={formData.roomStatus}
-                  className="mb-0"
-                />
-              </div>
+            <div className="w-full sm:flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Event Type Code
+              </label>
+              <Input
+                name="eventCode"
+                value={formData.eventCode}
+                readonly
+                className="w-full"
+                onChange={handleInputChange}
+              />
             </div>
 
             <div className="flex-1 mt-6">
@@ -541,7 +398,7 @@ export default function Rooms() {
               <Input
                 name="description"
                 value={formData.description}
-                placeholder="Enter Name"
+                placeholder="Enter Event Name"
                 required
                 className="w-full"
                 onChange={handleInputChange}
@@ -550,7 +407,7 @@ export default function Rooms() {
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Remarks
+                Remark
               </label>
               <textarea
                 name="remarks"
@@ -566,7 +423,7 @@ export default function Rooms() {
               <Button
                 type="submit"
                 className={`w-50 sm:w-auto sm:min-w-[180px] ${
-                  editingCode
+                  editingId
                     ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
                 } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
@@ -574,10 +431,10 @@ export default function Rooms() {
                 disabled={isSubmitting}
               >
                 {isSubmitting
-                  ? editingCode
+                  ? editingId
                     ? "Updating..."
                     : "Adding..."
-                  : editingCode
+                  : editingId
                   ? "Update"
                   : "Submit"}
               </Button>
@@ -588,7 +445,7 @@ export default function Rooms() {
                 onClick={handleClear}
                 disabled={isSubmitting}
               >
-                {editingCode ? "Cancel" : "Clear"}
+                {editingId ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -599,13 +456,13 @@ export default function Rooms() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Rooms"
+        title="Select Event Type"
         size="auto"
-        columnCount={roomColumns.length}
+        columnCount={eventTypeColumns.length}
       >
         <DataTable
-          data={rooms}
-          columns={roomColumns}
+          data={eventTypes}
+          columns={eventTypeColumns}
           loading={loading}
           searchable={true}
           pagination={true}

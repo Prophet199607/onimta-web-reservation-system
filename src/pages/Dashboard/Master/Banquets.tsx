@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import Select from "../../components/form/Select";
-import API_BASE_URL from "../../config/api";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import Select from "../../../components/form/Select";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
 // Sample room types data

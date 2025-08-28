@@ -1,49 +1,71 @@
-import { useState, useEffect } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import API_BASE_URL from "../../config/api";
+import { useState, useEffect, useRef } from "react";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import Select from "../../../components/form/Select";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
 // Sample room types data
-interface RoomType {
-  roomTypeID: number;
+interface Rooms {
+  roomID: number;
   roomTypeCode: string;
+  roomCode: string;
+  roomSize: string;
+  roomStatus: string;
   description: string;
   remarks: string;
+  isRoom: boolean;
+  isBanquet: boolean;
 }
 
-export default function RoomTypes() {
+export default function Rooms() {
   const [formData, setFormData] = useState({
     roomTypeCode: "",
+    roomCode: "",
+    roomSize: "",
+    roomStatus: "",
     description: "",
     remarks: "",
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingCode, setEditingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [rooms, setRooms] = useState<Rooms[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredRoomTypes, setFilteredRoomTypes] = useState<RoomType[]>([]);
+  const [filteredRooms, setFilteredRooms] = useState<Rooms[]>([]);
+  const [roomTypeOptions, setRoomTypeOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const hasFetched = useRef(false);
+
+  const roomStatusOptions = [
+    { value: "VACANT", label: "Vacant" },
+    { value: "OCCUPIED", label: "Occupied" },
+    { value: "RESERVED", label: "Reserved" },
+    { value: "OUT_OF_ORDER", label: "Out of Order" },
+    { value: "CLEANING", label: "Cleaning in Progress" },
+    { value: "BLOCKED", label: "Blocked" },
+  ];
 
   // Define columns for the DataTable
-  const roomTypeColumns: Column<RoomType>[] = [
+  const roomColumns: Column<Rooms>[] = [
     {
       key: "index",
       header: "#",
       width: "20",
       sortable: false,
-      render: (_value: any, _row: RoomType, index: number) => (
+      render: (_value: any, _row: Rooms, index: number) => (
         <span className="font-medium text-gray-600 dark:text-gray-400">
           {index + 1}
         </span>
@@ -51,16 +73,39 @@ export default function RoomTypes() {
     },
     {
       key: "roomTypeCode",
-      header: "Code",
+      header: "Room Type",
+      sortable: true,
+      searchable: true,
+      width: "100px",
+      render: (value: string) =>
+        roomTypeOptions.find((opt) => opt.value === value)?.label || value,
+    },
+    {
+      key: "roomCode",
+      header: "Room Code",
       sortable: true,
       searchable: true,
       width: "100px",
     },
     {
       key: "description",
-      header: "Name",
+      header: "Room Name",
       sortable: true,
       searchable: true,
+    },
+    {
+      key: "roomSize",
+      header: "Room Size",
+      sortable: true,
+      searchable: true,
+      width: "100px",
+    },
+    {
+      key: "roomStatus",
+      header: "Room Status",
+      sortable: true,
+      searchable: true,
+      width: "100px",
     },
     {
       key: "remarks",
@@ -89,6 +134,36 @@ export default function RoomTypes() {
     };
   }, []);
 
+  const fetchRooms = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/Room/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Filter only rooms where isRoom is true
+        const roomsOnly = Array.isArray(data)
+          ? data.filter((room: Rooms) => room.isRoom === true)
+          : [];
+        setRooms(roomsOnly);
+      } else {
+        throw new Error("Failed to fetch Rooms");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load rooms");
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchRoomTypes = async () => {
     setLoading(true);
     try {
@@ -103,21 +178,24 @@ export default function RoomTypes() {
 
       if (response.ok) {
         const data = await response.json();
-        setRoomTypes(Array.isArray(data) ? data : []);
+
+        // map API response -> { value, label }
+        const options = data.map((rt: any) => ({
+          value: rt.roomTypeCode, // what backend expects
+          label: rt.description, // what user sees
+        }));
+
+        setRoomTypeOptions(options);
       } else {
         throw new Error("Failed to fetch Room Types");
       }
     } catch (error) {
       showErrorToast("Failed to load room types");
-      setRoomTypes([]);
+      setRoomTypeOptions([]);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchRoomTypes();
-  }, []);
 
   const fetchNextCode = async () => {
     setLoading(true);
@@ -126,28 +204,36 @@ export default function RoomTypes() {
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
 
-      const response = await fetch(`${API_BASE_URL}/api/RoomType/getNextCode`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      // Query parameters for isRoom=true and isBanquet=false
+      const queryParams = new URLSearchParams({
+        isRoom: "true",
+        isBanquet: "false",
       });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/Room/getNextroomCode?${queryParams}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
-
         setFormData((prev) => ({
           ...prev,
-          roomTypeCode: data.nextCode || "",
+          roomCode: data.nextCode || "",
         }));
       } else {
-        throw new Error("Failed to fetch Room Type code");
+        throw new Error("Failed to fetch Room code");
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load room type code");
+      showErrorToast("Failed to load room code");
       setFormData((prev) => ({
         ...prev,
-        roomTypeCode: "",
+        roomCode: "",
       }));
     } finally {
       setLoading(false);
@@ -155,7 +241,12 @@ export default function RoomTypes() {
   };
 
   useEffect(() => {
-    fetchNextCode();
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchNextCode();
+      fetchRooms();
+      fetchRoomTypes();
+    }
   }, []);
 
   // Search Handling
@@ -165,84 +256,96 @@ export default function RoomTypes() {
 
     // Filter room types based on search term
     if (value.trim() === "") {
-      setFilteredRoomTypes([]);
+      setFilteredRooms([]);
     } else {
-      const filtered = roomTypes.filter(
-        (roomType) =>
-          roomType.description.toLowerCase().includes(value.toLowerCase()) ||
-          roomType.roomTypeCode.toLowerCase().includes(value.toLowerCase())
+      const filtered = rooms.filter(
+        (room) =>
+          room.description.toLowerCase().includes(value.toLowerCase()) ||
+          room.roomCode.toLowerCase().includes(value.toLowerCase())
       );
-      setFilteredRoomTypes(filtered);
+      setFilteredRooms(filtered);
     }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredRoomTypes([]);
+    setFilteredRooms([]);
     handleClear();
   };
 
-  // Function to handle selecting a room type from search results
-  const handleSearchResultClick = (roomType: RoomType) => {
+  // Function to handle selecting a room from search results
+  const handleSearchResultClick = (room: Rooms) => {
     setFormData({
-      roomTypeCode: roomType.roomTypeCode,
-      description: roomType.description,
-      remarks: roomType.remarks,
+      roomTypeCode: room.roomTypeCode,
+      roomCode: room.roomCode,
+      roomSize: room.roomSize,
+      roomStatus: room.roomStatus,
+      description: room.description,
+      remarks: room.remarks,
     });
-    setEditingId(roomType.roomTypeID);
+    setEditingCode(room.roomCode);
     setSearchTerm("");
-    setFilteredRoomTypes([]);
+    setFilteredRooms([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.description.trim()) {
-      showErrorToast("Please fill room name");
-      return;
-    }
-
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
-      editingId ? "Updating Room Type..." : "Adding Room Type..."
+      editingCode ? "Updating Room ..." : "Adding Room ..."
     );
 
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
-      const url = editingId
-        ? `${API_BASE_URL}/api/RoomType/Update/${editingId}`
-        : `${API_BASE_URL}/api/RoomType/add`;
+      const url = editingCode
+        ? `${API_BASE_URL}/api/Room/update/${editingCode}`
+        : `${API_BASE_URL}/api/Room/add`;
+
+      const payload = {
+        ...formData,
+        isRoom: true,
+        isBanquet: false,
+      };
 
       const response = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
+        method: editingCode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         dismissToast(loadingToastId);
         showSuccessToast(
-          editingId
-            ? "Room Type updated successfully!"
-            : "Room Type added successfully!"
+          editingCode
+            ? "Room updated successfully!"
+            : "Room added successfully!"
         );
         handleClear();
-        fetchRoomTypes();
+        fetchRooms();
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       dismissToast(loadingToastId);
-      console.error("Error saving room type:", error);
-      showErrorToast("Room Type Code already exists");
+      console.error("Error saving room:", error);
+      showErrorToast("Room Code already exists");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle select field changes
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,32 +364,35 @@ export default function RoomTypes() {
     }));
   };
 
-  const handleRowClick = (row: RoomType) => {
+  const handleRowClick = (row: Rooms) => {
     setFormData({
       roomTypeCode: row.roomTypeCode,
+      roomCode: row.roomCode,
+      roomSize: row.roomSize,
+      roomStatus: row.roomStatus,
       description: row.description,
       remarks: row.remarks,
     });
-    setEditingId(row.roomTypeID);
+    setEditingCode(row.roomCode);
     setIsModalOpen(false);
   };
 
   const handleClear = () => {
     setFormData({
       roomTypeCode: "",
+      roomCode: "",
+      roomSize: "",
+      roomStatus: "",
       description: "",
       remarks: "",
     });
-    setEditingId(null);
+    setEditingCode(null);
     fetchNextCode();
   };
 
   return (
     <>
-      <PageMeta
-        title="Room Types - Reservation System"
-        description="Manage room types"
-      />
+      <PageMeta title="Rooms - Reservation System" description="Manage rooms" />
 
       {/* Breadcrumb and Header container */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
@@ -302,14 +408,14 @@ export default function RoomTypes() {
               </a>
             </li>
             <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Room Types</li>
+            <li className="text-gray-900 dark:text-white">Rooms</li>
           </ol>
         </nav>
 
         {/* Header */}
         <div className="order-1 lg:order-2">
           <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Room Types
+            Manage Rooms
           </h3>
         </div>
 
@@ -342,20 +448,20 @@ export default function RoomTypes() {
               </div>
 
               {/* Search Results Dropdown */}
-              {searchTerm && filteredRoomTypes.length > 0 && (
+              {searchTerm && filteredRooms.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredRoomTypes.map((roomType) => (
+                  {filteredRooms.map((room) => (
                     <div
-                      key={roomType.roomTypeID}
-                      onClick={() => handleSearchResultClick(roomType)}
+                      key={room.roomCode}
+                      onClick={() => handleSearchResultClick(room)}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {roomType.roomTypeCode}
+                          {room.roomCode}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {roomType.description}
+                          {room.description}
                         </span>
                       </div>
                     </div>
@@ -364,28 +470,68 @@ export default function RoomTypes() {
               )}
 
               {/* No Results Message */}
-              {searchTerm &&
-                filteredRoomTypes.length === 0 &&
-                roomTypes.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
-                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No room types found
-                    </div>
+              {searchTerm && filteredRooms.length === 0 && rooms.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                  <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                    No rooms found
                   </div>
-                )}
+                </div>
+              )}
             </div>
 
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Room Type Code
-              </label>
-              <Input
-                name="roomTypeCode"
-                value={formData.roomTypeCode}
-                readonly
-                className="w-full"
-                onChange={handleInputChange}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Code
+                </label>
+                <Input
+                  name="roomCode"
+                  value={formData.roomCode}
+                  readonly
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Type
+                </label>
+                <Select
+                  options={roomTypeOptions}
+                  onChange={(value) =>
+                    handleSelectChange("roomTypeCode", value)
+                  }
+                  placeholder="Select Type"
+                  value={formData.roomTypeCode}
+                  className="mb-0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Size
+                </label>
+                <Input
+                  name="roomSize"
+                  value={formData.roomSize}
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Status
+                </label>
+                <Select
+                  options={roomStatusOptions}
+                  onChange={(value) => handleSelectChange("roomStatus", value)}
+                  placeholder="Select Type"
+                  value={formData.roomStatus}
+                  className="mb-0"
+                />
+              </div>
             </div>
 
             <div className="flex-1 mt-6">
@@ -404,7 +550,7 @@ export default function RoomTypes() {
 
             <div className="flex-1 mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                remarks
+                Remarks
               </label>
               <textarea
                 name="remarks"
@@ -420,7 +566,7 @@ export default function RoomTypes() {
               <Button
                 type="submit"
                 className={`w-50 sm:w-auto sm:min-w-[180px] ${
-                  editingId
+                  editingCode
                     ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
                 } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
@@ -428,10 +574,10 @@ export default function RoomTypes() {
                 disabled={isSubmitting}
               >
                 {isSubmitting
-                  ? editingId
+                  ? editingCode
                     ? "Updating..."
                     : "Adding..."
-                  : editingId
+                  : editingCode
                   ? "Update"
                   : "Submit"}
               </Button>
@@ -442,7 +588,7 @@ export default function RoomTypes() {
                 onClick={handleClear}
                 disabled={isSubmitting}
               >
-                {editingId ? "Cancel" : "Clear"}
+                {editingCode ? "Cancel" : "Clear"}
               </Button>
             </div>
           </form>
@@ -453,13 +599,13 @@ export default function RoomTypes() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Room Type"
+        title="Select Rooms"
         size="auto"
-        columnCount={roomTypeColumns.length}
+        columnCount={roomColumns.length}
       >
         <DataTable
-          data={roomTypes}
-          columns={roomTypeColumns}
+          data={rooms}
+          columns={roomColumns}
           loading={loading}
           searchable={true}
           pagination={true}

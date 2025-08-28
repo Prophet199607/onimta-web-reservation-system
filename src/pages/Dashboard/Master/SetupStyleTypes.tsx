@@ -1,56 +1,58 @@
 import { useState, useEffect } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import API_BASE_URL from "../../config/api";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
-// Sample event types data
-interface TravelAgent {
-  travelAgentID: number;
-  travelAgentCode: string;
+// Sample setup style types data
+interface SetupStyleType {
+  setupStyleTypeID: number;
+  setupStyleCode: string;
   description: string;
+  remarks: string;
 }
 
-export default function TravelAgent() {
+export default function SetupStyleTypes() {
   const [formData, setFormData] = useState({
-    travelAgentCode: "",
+    setupStyleCode: "",
     description: "",
+    remarks: "",
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [travelAgents, setTravelAgents] = useState<TravelAgent[]>([]);
+  const [setupStyleTypes, setSetupStyleTypes] = useState<SetupStyleType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredTravelAgents, setFilteredTravelAgents] = useState<
-    TravelAgent[]
+  const [filteredServiceStyleTypes, setFilteredServiceStyleTypes] = useState<
+    SetupStyleType[]
   >([]);
 
   // Define columns for the DataTable
-  const travelAgentColumns: Column<TravelAgent>[] = [
+  const setupStyleTypeColumns: Column<SetupStyleType>[] = [
     {
       key: "index",
       header: "#",
       width: "20",
       sortable: false,
-      render: (_value: any, _row: TravelAgent, index: number) => (
+      render: (_value: any, _row: SetupStyleType, index: number) => (
         <span className="font-medium text-gray-600 dark:text-gray-400">
           {index + 1}
         </span>
       ),
     },
     {
-      key: "travelAgentCode",
+      key: "setupStyleCode",
       header: "Code",
       sortable: true,
       searchable: true,
@@ -59,6 +61,12 @@ export default function TravelAgent() {
     {
       key: "description",
       header: "Name",
+      sortable: true,
+      searchable: true,
+    },
+    {
+      key: "remarks",
+      header: "Remark",
       sortable: true,
       searchable: true,
     },
@@ -83,13 +91,13 @@ export default function TravelAgent() {
     };
   }, []);
 
-  const fetchTravelAgents = async () => {
+  const fetchSetupStyleTypes = async () => {
     setLoading(true);
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/TravelAgent/getall`, {
+      const response = await fetch(`${API_BASE_URL}/api/SetupStyle/getall`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -97,20 +105,20 @@ export default function TravelAgent() {
 
       if (response.ok) {
         const data = await response.json();
-        setTravelAgents(Array.isArray(data) ? data : []);
+        setSetupStyleTypes(Array.isArray(data) ? data : []);
       } else {
-        throw new Error("Failed to fetch Travel Agents");
+        throw new Error("Failed to fetch Event Types");
       }
     } catch (error) {
-      console.log("Failed to load travel agents");
-      setTravelAgents([]);
+      showErrorToast("Failed to load event types");
+      setSetupStyleTypes([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTravelAgents();
+    fetchSetupStyleTypes();
   }, []);
 
   const fetchNextCode = async () => {
@@ -121,7 +129,7 @@ export default function TravelAgent() {
         sessionStorage.getItem("authToken");
 
       const response = await fetch(
-        `${API_BASE_URL}/api/TravelAgent/getNextCode`,
+        `${API_BASE_URL}/api/SetupStyle/getNextCode`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -134,17 +142,17 @@ export default function TravelAgent() {
 
         setFormData((prev) => ({
           ...prev,
-          travelAgentCode: data.nextCode || "",
+          setupStyleCode: data.nextCode || "",
         }));
       } else {
-        throw new Error("Failed to fetch Travel Agent code");
+        throw new Error("Failed to fetch Setup Style code");
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load travel agent code");
+      showErrorToast("Failed to load setup style code");
       setFormData((prev) => ({
         ...prev,
-        travelAgentCode: "",
+        setupStyleCode: "",
       }));
     } finally {
       setLoading(false);
@@ -162,47 +170,56 @@ export default function TravelAgent() {
 
     // Filter room types based on search term
     if (value.trim() === "") {
-      setFilteredTravelAgents([]);
+      setFilteredServiceStyleTypes([]);
     } else {
-      const filtered = travelAgents.filter(
-        (travelAgent) =>
-          travelAgent.description.toLowerCase().includes(value.toLowerCase()) ||
-          travelAgent.travelAgentCode
-            .toLowerCase()
-            .includes(value.toLowerCase())
+      const filtered = setupStyleTypes.filter(
+        (setupStyle) =>
+          setupStyle.description.toLowerCase().includes(value.toLowerCase()) ||
+          setupStyle.setupStyleCode.toLowerCase().includes(value.toLowerCase())
       );
-      setFilteredTravelAgents(filtered);
+      setFilteredServiceStyleTypes(filtered);
     }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredTravelAgents([]);
+    setFilteredServiceStyleTypes([]);
     handleClear();
   };
 
   // Function to handle selecting a room type from search results
-  const handleSearchResultClick = (travelAgent: TravelAgent) => {
+  const handleSearchResultClick = (setupStyle: SetupStyleType) => {
     setFormData({
-      travelAgentCode: travelAgent.travelAgentCode,
-      description: travelAgent.description,
+      setupStyleCode: setupStyle.setupStyleCode,
+      description: setupStyle.description,
+      remarks: setupStyle.remarks,
     });
-    setEditingId(travelAgent.travelAgentID);
+    setEditingId(setupStyle.setupStyleTypeID);
     setSearchTerm("");
-    setFilteredTravelAgents([]);
+    setFilteredServiceStyleTypes([]);
+  };
+
+  const handleRowClick = (row: SetupStyleType) => {
+    setFormData({
+      setupStyleCode: row.setupStyleCode,
+      description: row.description,
+      remarks: row.remarks,
+    });
+    setEditingId(row.setupStyleTypeID);
+    setIsModalOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.description.trim()) {
-      showErrorToast("Please fill travel agent name");
+      showErrorToast("Please fill setup style name");
       return;
     }
 
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
-      editingId ? "Updating Travel Agent..." : "Adding Travel Agent..."
+      editingId ? "Updating Setup Style Type..." : "Adding Setup Style Type..."
     );
 
     try {
@@ -210,13 +227,13 @@ export default function TravelAgent() {
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
       const url = editingId
-        ? `${API_BASE_URL}/api/TravelAgent/Update/${editingId}`
-        : `${API_BASE_URL}/api/TravelAgent/add`;
+        ? `${API_BASE_URL}/api/SetupStyle/Update/${editingId}`
+        : `${API_BASE_URL}/api/SetupStyle/add`;
 
       const response = await fetch(url, {
         method: editingId ? "PUT" : "POST",
         headers: {
-          "Content-type": "application/json",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
@@ -226,18 +243,18 @@ export default function TravelAgent() {
         dismissToast(loadingToastId);
         showSuccessToast(
           editingId
-            ? "Travel Agent updated successfully!"
-            : "Travel Agent added successfully!"
+            ? "Setup Style Type updated successfully!"
+            : "Setup Style Type added successfully!"
         );
         handleClear();
-        fetchTravelAgents();
+        fetchSetupStyleTypes();
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (error) {
       dismissToast(loadingToastId);
-      console.error("Error saving travel agent:", error);
-      showErrorToast("Travel Agent Code already exists");
+      console.error("Error saving setup style type:", error);
+      showErrorToast("Setup Style Type Code already exists");
     } finally {
       setIsSubmitting(false);
     }
@@ -251,29 +268,28 @@ export default function TravelAgent() {
     }));
   };
 
-  const handleRowClick = (row: TravelAgent) => {
-    setFormData({
-      travelAgentCode: row.travelAgentCode,
-      description: row.description,
-    });
-    setEditingId(row.travelAgentID);
-    setIsModalOpen(false);
+  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleClear = () => {
     setFormData({
-      travelAgentCode: "",
+      setupStyleCode: "",
       description: "",
+      remarks: "",
     });
     setEditingId(null);
-    fetchNextCode();
   };
 
   return (
     <>
       <PageMeta
-        title="Travel Agent - Reservation System"
-        description="Manage travel agent"
+        title="Event Setup Style Types - Reservation System"
+        description="Manage event setup style types"
       />
 
       {/* Breadcrumb and Header container */}
@@ -290,14 +306,16 @@ export default function TravelAgent() {
               </a>
             </li>
             <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Travel Agent</li>
+            <li className="text-gray-900 dark:text-white">
+              Event Setup Style Types
+            </li>
           </ol>
         </nav>
 
         {/* Header */}
         <div className="order-1 lg:order-2">
           <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Travel Agent
+            Manage Event Setup Style Types
           </h3>
         </div>
 
@@ -330,20 +348,20 @@ export default function TravelAgent() {
               </div>
 
               {/* Search Results Dropdown */}
-              {searchTerm && filteredTravelAgents.length > 0 && (
+              {searchTerm && filteredServiceStyleTypes.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredTravelAgents.map((travelAgent) => (
+                  {filteredServiceStyleTypes.map((setupStyle) => (
                     <div
-                      key={travelAgent.travelAgentID}
-                      onClick={() => handleSearchResultClick(travelAgent)}
+                      key={setupStyle.setupStyleTypeID}
+                      onClick={() => handleSearchResultClick(setupStyle)}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {travelAgent.travelAgentCode}
+                          {setupStyle.setupStyleCode}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {travelAgent.description}
+                          {setupStyle.description}
                         </span>
                       </div>
                     </div>
@@ -353,11 +371,11 @@ export default function TravelAgent() {
 
               {/* No Results Message */}
               {searchTerm &&
-                filteredTravelAgents.length === 0 &&
-                travelAgents.length > 0 && (
+                filteredServiceStyleTypes.length === 0 &&
+                setupStyleTypes.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
                     <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No travel agents found
+                      No setup style types found
                     </div>
                   </div>
                 )}
@@ -365,11 +383,11 @@ export default function TravelAgent() {
 
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Agent Code
+                Setup Style Code
               </label>
               <Input
-                name="travelAgentCode"
-                value={formData.travelAgentCode}
+                name="setupStyleCode"
+                value={formData.setupStyleCode}
                 readonly
                 className="w-full"
                 onChange={handleInputChange}
@@ -383,10 +401,24 @@ export default function TravelAgent() {
               <Input
                 name="description"
                 value={formData.description}
-                placeholder="Enter Travel Agent Name"
+                placeholder="Enter Event Name"
                 required
                 className="w-full"
                 onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="flex-1 mt-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Remark
+              </label>
+              <textarea
+                name="remarks"
+                value={formData.remarks}
+                className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                rows={4}
+                placeholder="Enter your remarks here"
+                onChange={handleTextAreaChange}
               />
             </div>
 
@@ -427,13 +459,13 @@ export default function TravelAgent() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Travel Agent"
+        title="Select Event Type"
         size="auto"
-        columnCount={travelAgentColumns.length}
+        columnCount={setupStyleTypeColumns.length}
       >
         <DataTable
-          data={travelAgents}
-          columns={travelAgentColumns}
+          data={setupStyleTypes}
+          columns={setupStyleTypeColumns}
           loading={loading}
           searchable={true}
           pagination={true}

@@ -1,45 +1,37 @@
 import { useState, useEffect } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import Select from "../../components/form/Select";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import API_BASE_URL from "../../config/api";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import Select from "../../../components/form/Select";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
-//Sample package data
-interface Package {
-  packageID: number;
-  packageCode: string;
-  packageName: string;
-  packageDuration: number;
+// Sample service types data
+interface ServiceTypes {
+  serviceTypeID: number;
+  serviceCode: string;
+  serviceName: string;
+  quantity: number;
+  serviceAmount: number;
   remarks: string;
-  roomPrice: number;
-  roomCost: number;
-  roomAmount: number;
-  foodAmount: number;
-  beverageAmount: number;
   isRoom: boolean;
   isBanquet: boolean;
 }
 
-export default function PackageInfo() {
+export default function ServiceTypes() {
   const [formData, setFormData] = useState({
-    packageCode: "",
-    packageName: "",
-    roomPrice: "",
-    roomCost: "",
-    packageDuration: "",
-    roomAmount: "",
-    foodAmount: "",
-    beverageAmount: "",
+    serviceCode: "",
+    serviceName: "",
+    quantity: "",
+    serviceAmount: "",
     remarks: "",
     type: "",
   });
@@ -47,10 +39,12 @@ export default function PackageInfo() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [packageInfo, setPackageInfo] = useState<Package[]>([]);
+  const [servicetype, setServiceType] = useState<ServiceTypes[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredPackageInfo, setFilteredPackageInfo] = useState<Package[]>([]);
+  const [filteredServiceTypes, setFilteredServiceTypes] = useState<
+    ServiceTypes[]
+  >([]);
 
   const formatThousand = (value: string) => {
     const num = value.replace(/,/g, "");
@@ -64,78 +58,46 @@ export default function PackageInfo() {
   ];
 
   // Define columns for the DataTable
-  const packageColumns: Column<Package>[] = [
+  const serviceColumn: Column<ServiceTypes>[] = [
     {
       key: "index",
       header: "#",
       width: "20",
       sortable: false,
-      render: (_value: any, _row: Package, index: number) => (
+      render: (_value: any, _row: ServiceTypes, index: number) => (
         <span className="font-medium text-gray-600 dark:text-gray-400">
           {index + 1}
         </span>
       ),
     },
     {
-      key: "packageCode",
-      header: "Package Code",
+      key: "serviceCode",
+      header: "Service Code",
       sortable: true,
       searchable: true,
     },
     {
-      key: "packageName",
-      header: "Package Name",
+      key: "serviceName",
+      header: "Service Name",
       sortable: true,
       searchable: true,
     },
     {
       key: "type",
-      header: "Package Type",
+      header: "Service Type",
       sortable: true,
       searchable: true,
     },
     {
-      key: "packageDuration",
-      header: "Duration (Hrs)",
+      key: "quantity",
+      header: "Quantity",
       sortable: true,
       searchable: true,
       align: "center",
     },
     {
-      key: "roomAmount",
-      header: "Room Amount",
-      sortable: true,
-      searchable: true,
-      align: "right",
-      render: (value) => value?.toLocaleString(),
-    },
-    {
-      key: "roomPrice",
-      header: "Price",
-      sortable: true,
-      searchable: true,
-      align: "right",
-      render: (value) => value?.toLocaleString(),
-    },
-    {
-      key: "roomCost",
-      header: "Cost",
-      sortable: true,
-      searchable: true,
-      align: "right",
-      render: (value) => value?.toLocaleString(),
-    },
-    {
-      key: "foodAmount",
-      header: "Food Amount",
-      sortable: true,
-      searchable: true,
-      align: "right",
-      render: (value) => value?.toLocaleString(),
-    },
-    {
-      key: "beverageAmount",
-      header: "Beverage Amount",
+      key: "serviceAmount",
+      header: "Amount",
       sortable: true,
       searchable: true,
       align: "right",
@@ -152,7 +114,7 @@ export default function PackageInfo() {
   // Handle F3 key press
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "F3") {
+      if (event.key == "F3") {
         event.preventDefault();
         setIsModalOpen(true);
       }
@@ -167,14 +129,15 @@ export default function PackageInfo() {
     };
   }, []);
 
-  const fetchPackageInfo = async () => {
+  const fetchServiceTypes = async () => {
     setLoading(true);
+
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
 
-      const response = await fetch(`${API_BASE_URL}/api/PackageInfo/getall`, {
+      const response = await fetch(`${API_BASE_URL}/api/ServiceType/getall`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -186,26 +149,24 @@ export default function PackageInfo() {
 
         // Ensure data is an array
         if (Array.isArray(data)) {
-          setPackageInfo(data);
+          setServiceType(data);
         } else {
-          setPackageInfo([]);
+          setServiceType([]);
           showErrorToast("Invalid data format received from server");
         }
       } else {
-        throw new Error(
-          `Failed to fetch Package Information: ${response.status}`
-        );
+        throw new Error(`Failed to fetch Service Types: ${response.status}`);
       }
     } catch (error) {
-      showErrorToast("Failed to load package information");
-      setPackageInfo([]);
+      showErrorToast("Failed to load service types");
+      setServiceType([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPackageInfo();
+    fetchServiceTypes();
   }, []);
 
   const fetchNextCode = async () => {
@@ -216,7 +177,7 @@ export default function PackageInfo() {
         sessionStorage.getItem("authToken");
 
       const response = await fetch(
-        `${API_BASE_URL}/api/PackageInfo/getNextCode`,
+        `${API_BASE_URL}/api/ServiceType/getNextCode`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -229,17 +190,17 @@ export default function PackageInfo() {
 
         setFormData((prev) => ({
           ...prev,
-          packageCode: data.nextCode || "",
+          serviceCode: data.nextCode || "",
         }));
       } else {
-        throw new Error("Failed to fetch Package code");
+        throw new Error("Failed to fetch Room Type code");
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load package code");
+      showErrorToast("Failed to load room type code");
       setFormData((prev) => ({
         ...prev,
-        packageCode: "",
+        serviceCode: "",
       }));
     } finally {
       setLoading(false);
@@ -257,48 +218,43 @@ export default function PackageInfo() {
 
     // Filter room types based on search term
     if (value.trim() === "") {
-      setFilteredPackageInfo([]);
+      setFilteredServiceTypes([]);
     } else {
-      const filtered = packageInfo.filter(
-        (packageInfo) =>
-          packageInfo.packageCode.toLowerCase().includes(value.toLowerCase()) ||
-          packageInfo.packageName.toLowerCase().includes(value.toLowerCase())
+      const filtered = servicetype.filter(
+        (servicetype) =>
+          servicetype.serviceCode.toLowerCase().includes(value.toLowerCase()) ||
+          servicetype.serviceName.toLowerCase().includes(value.toLowerCase())
       );
-      setFilteredPackageInfo(filtered);
+      setFilteredServiceTypes(filtered);
     }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredPackageInfo([]);
+    setFilteredServiceTypes([]);
     handleClear();
   };
 
   // Function to handle selecting a room type from search results
-  const handleSearchResultClick = (packageInfo: Package) => {
+  const handleSearchResultClick = (servicetype: ServiceTypes) => {
     setFormData({
-      packageCode: packageInfo.packageCode,
-      packageName: packageInfo.packageName,
-      roomPrice: packageInfo.roomPrice.toString(),
-      roomCost: packageInfo.roomCost.toString(),
-      packageDuration: packageInfo.packageDuration.toString(),
-      roomAmount: packageInfo.roomAmount.toString(),
-      foodAmount: packageInfo.foodAmount.toString(),
-      beverageAmount: packageInfo.beverageAmount.toString(),
-      remarks: packageInfo.remarks || "",
-      type: packageInfo.isRoom
+      serviceCode: servicetype.serviceCode,
+      serviceName: servicetype.serviceName,
+      quantity: servicetype.quantity.toString(),
+      serviceAmount: servicetype.serviceAmount.toString(),
+      remarks: servicetype.remarks || "",
+      type: servicetype.isRoom
         ? "Room"
-        : packageInfo.isBanquet
+        : servicetype.isBanquet
         ? "Banquet"
         : "",
     });
 
-    setEditingId(packageInfo.packageID);
+    setEditingId(servicetype.serviceTypeID);
     setSearchTerm("");
-    setFilteredPackageInfo([]);
+    setFilteredServiceTypes([]);
   };
 
-  // Handle select field changes
   const handleSelectChange = (field: string, value: string) => {
     setFormData({
       ...formData,
@@ -329,45 +285,17 @@ export default function PackageInfo() {
     }));
   };
 
-  const validateForm = () => {
-    const requiredFields = [
-      { field: "packageName", label: "Package Name" },
-      { field: "type", label: "Package Type" },
-      { field: "roomAmount", label: "Room Amount" },
-      { field: "foodAmount", label: "Food Amount" },
-      { field: "beverageAmount", label: "Beverage Amount" },
-    ];
-
-    const errors: string[] = [];
-
-    requiredFields.forEach(({ field, label }) => {
-      const value = formData[field as keyof typeof formData];
-      if (
-        value === undefined ||
-        value === null ||
-        (typeof value === "string" && value.trim() === "")
-      ) {
-        errors.push(`${label} is required`);
-      }
-    });
-
-    return errors;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      showErrorToast(
-        `Please fill in required fields: ${validationErrors.join(", ")}`
-      );
+    if (!formData.serviceName.trim() || !formData.type.trim()) {
+      showErrorToast("Please fill in required fields");
       return;
     }
 
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
-      editingId ? "Updating Package Info..." : "Adding Package Info..."
+      editingId ? "Updating Service Type..." : "Adding Service Type..."
     );
 
     try {
@@ -376,20 +304,16 @@ export default function PackageInfo() {
         sessionStorage.getItem("authToken");
 
       const url = editingId
-        ? `${API_BASE_URL}/api/PackageInfo/Update/${editingId}`
-        : `${API_BASE_URL}/api/PackageInfo/add`;
+        ? `${API_BASE_URL}/api/ServiceType/Update/${editingId}`
+        : `${API_BASE_URL}/api/ServiceType/add`;
 
       // Prepare data with correct field names
       const requestData = {
-        ...(editingId && { packageID: editingId }),
-        packageCode: formData.packageCode || "",
-        packageName: formData.packageName.trim(),
-        packageDuration: parseFloat(formData.packageDuration) || 0,
-        roomPrice: parseFloat(formData.roomPrice) || 0,
-        roomCost: parseFloat(formData.roomCost) || 0,
-        roomAmount: parseFloat(formData.roomAmount) || 0,
-        foodAmount: parseFloat(formData.foodAmount) || 0,
-        beverageAmount: parseFloat(formData.beverageAmount) || 0,
+        ...(editingId && { serviceTypeID: editingId }),
+        serviceCode: formData.serviceCode || "",
+        serviceName: formData.serviceName.trim(),
+        quantity: parseFloat(formData.quantity) || 0,
+        serviceAmount: parseFloat(formData.serviceAmount) || 0,
         remarks: formData.remarks || "",
         isRoom: formData.type === "Room",
         isBanquet: formData.type === "Banquet",
@@ -410,11 +334,11 @@ export default function PackageInfo() {
         dismissToast(loadingToastId);
         showSuccessToast(
           editingId
-            ? "Package Information updated successfully!"
-            : "Package Information added successfully!"
+            ? "Service Type updated successfully!"
+            : "Service Type added successfully!"
         );
         handleClear();
-        fetchPackageInfo();
+        fetchServiceTypes();
       } else {
         const errorText = await response.text();
         console.error("Error response:", errorText);
@@ -424,19 +348,17 @@ export default function PackageInfo() {
       }
     } catch (error) {
       dismissToast(loadingToastId);
-      console.error("Error saving package info:", error);
+      console.error("Error saving service type:", error);
       showErrorToast(
-        error instanceof Error
-          ? error.message
-          : "Failed to save package information"
+        error instanceof Error ? error.message : "Failed to save service type"
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // handle RowClick function
-  const handleRowClick = (row: Package) => {
+  // handleRowClick function
+  const handleRowClick = (row: ServiceTypes) => {
     // Determine type from boolean flags
     let type = "";
     if (row.isRoom && row.isBanquet) type = "Room & Banquet";
@@ -444,32 +366,28 @@ export default function PackageInfo() {
     else if (row.isBanquet) type = "Banquet";
 
     setFormData({
-      packageCode: row.packageCode || "",
-      packageName: row.packageName || "",
-      roomPrice: row.roomPrice.toString(),
-      roomCost: row.roomCost.toString(),
-      packageDuration: row.packageDuration.toString(),
-      roomAmount: row.roomAmount.toString(),
-      foodAmount: row.foodAmount.toString(),
-      beverageAmount: row.beverageAmount.toString(),
+      serviceCode: row.serviceCode || "",
+      serviceName: row.serviceName || "",
+      quantity: row.quantity.toString(),
+      serviceAmount: row.serviceAmount.toString(),
       remarks: row.remarks || "",
       type: type,
     });
-    setEditingId(row.packageID);
+    setEditingId(row.serviceTypeID);
     setIsModalOpen(false);
+
+    setTimeout(() => {
+      console.log("Editing ID set to:", row.serviceTypeID);
+    }, 0);
   };
 
   // handleClear function
   const handleClear = () => {
     setFormData({
-      packageCode: "",
-      packageName: "",
-      roomPrice: "",
-      roomCost: "",
-      packageDuration: "",
-      roomAmount: "",
-      foodAmount: "",
-      beverageAmount: "",
+      serviceCode: "",
+      serviceName: "",
+      quantity: "",
+      serviceAmount: "",
       remarks: "",
       type: "",
     });
@@ -480,8 +398,8 @@ export default function PackageInfo() {
   return (
     <>
       <PageMeta
-        title="Package Information - Reservation System"
-        description="Manage package information"
+        title="Service Types - Reservation System"
+        description="Manage service types"
       />
 
       {/* Breadcrumb and Header container */}
@@ -498,16 +416,14 @@ export default function PackageInfo() {
               </a>
             </li>
             <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">
-              Package Information
-            </li>
+            <li className="text-gray-900 dark:text-white">Service Type</li>
           </ol>
         </nav>
 
         {/* Header */}
         <div className="order-1 lg:order-2">
           <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Package Information
+            Manage Service Type
           </h3>
         </div>
 
@@ -540,20 +456,20 @@ export default function PackageInfo() {
               </div>
 
               {/* Search Results Dropdown */}
-              {searchTerm && filteredPackageInfo.length > 0 && (
+              {searchTerm && filteredServiceTypes.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredPackageInfo.map((packageInfo) => (
+                  {filteredServiceTypes.map((servicetype) => (
                     <div
-                      key={packageInfo.packageID}
-                      onClick={() => handleSearchResultClick(packageInfo)}
+                      key={servicetype.serviceTypeID}
+                      onClick={() => handleSearchResultClick(servicetype)}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {packageInfo.packageCode}
+                          {servicetype.serviceCode}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {packageInfo.packageName}
+                          {servicetype.serviceName}
                         </span>
                       </div>
                     </div>
@@ -563,11 +479,11 @@ export default function PackageInfo() {
 
               {/* No Results Message */}
               {searchTerm &&
-                filteredPackageInfo.length === 0 &&
-                packageInfo.length > 0 && (
+                filteredServiceTypes.length === 0 &&
+                servicetype.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
                     <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No package info found
+                      No service types found
                     </div>
                   </div>
                 )}
@@ -575,12 +491,26 @@ export default function PackageInfo() {
 
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Package Code
+                Service Type Code
               </label>
               <Input
-                name="packageCode"
-                value={formData.packageCode}
+                name="serviceCode"
+                value={formData.serviceCode}
                 readonly
+                className="w-full"
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="flex-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                name="serviceName"
+                value={formData.serviceName}
+                placeholder="Enter Service Name"
+                required
                 className="w-full"
                 onChange={handleInputChange}
               />
@@ -589,24 +519,26 @@ export default function PackageInfo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Package Type <span className="text-red-500">*</span>
+                  Quantity
                 </label>
-                <Select
-                  options={typeOptions}
-                  onChange={(value) => handleSelectChange("type", value)}
-                  placeholder="Select Type"
-                  value={formData.type}
-                  className="mb-0"
+                <Input
+                  name="quantity"
+                  value={formData.quantity}
+                  placeholder="Enter Quantity"
+                  required
+                  className="w-full"
+                  type="number"
+                  onChange={handleInputChange}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Package Name <span className="text-red-500">*</span>
+                  Amount
                 </label>
                 <Input
-                  name="packageName"
-                  value={formData.packageName}
-                  placeholder="Enter Package Name"
+                  name="serviceAmount"
+                  value={formatThousand(formData.serviceAmount)}
+                  placeholder="Enter Service Amount"
                   required
                   className="w-full"
                   onChange={handleInputChange}
@@ -614,91 +546,17 @@ export default function PackageInfo() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Duration
-                </label>
-                <Input
-                  name="packageDuration"
-                  value={formData.packageDuration}
-                  placeholder="Enter Duration Hrs"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Room Amount
-                </label>
-                <Input
-                  name="roomAmount"
-                  value={formatThousand(formData.roomAmount)}
-                  placeholder="Enter Room Amount"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Price
-                </label>
-                <Input
-                  name="roomPrice"
-                  value={formatThousand(formData.roomPrice)}
-                  placeholder="Enter Price"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cost
-                </label>
-                <Input
-                  name="roomCost"
-                  value={formatThousand(formData.roomCost)}
-                  placeholder="Enter Cost"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Food Amount
-                </label>
-                <Input
-                  name="foodAmount"
-                  value={formatThousand(formData.foodAmount)}
-                  placeholder="Enter Food Amount"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Beverage Amount
-                </label>
-                <Input
-                  name="beverageAmount"
-                  value={formatThousand(formData.beverageAmount)}
-                  placeholder="Enter Beverage Amount"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
+            <div className="flex-1 mt-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Type
+              </label>
+              <Select
+                options={typeOptions}
+                onChange={(value) => handleSelectChange("type", value)}
+                placeholder="Select Type"
+                value={formData.type}
+                className="mb-0"
+              />
             </div>
 
             <div className="flex-1 mt-6">
@@ -752,13 +610,13 @@ export default function PackageInfo() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Package Information"
+        title="Select Service Type Information"
         size="auto"
-        columnCount={packageColumns.length}
+        columnCount={serviceColumn.length}
       >
         <DataTable
-          data={packageInfo}
-          columns={packageColumns}
+          data={servicetype}
+          columns={serviceColumn}
           loading={loading}
           searchable={true}
           pagination={true}

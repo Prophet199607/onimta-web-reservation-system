@@ -1,37 +1,45 @@
 import { useState, useEffect } from "react";
-import PageMeta from "../../components/common/PageMeta";
-import Input from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
-import Select from "../../components/form/Select";
-import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
-import API_BASE_URL from "../../config/api";
+import PageMeta from "../../../components/common/PageMeta";
+import Input from "../../../components/form/input/InputField";
+import Button from "../../../components/ui/button/Button";
+import Select from "../../../components/form/Select";
+import DataTable, { Column } from "../../../components/tables/DataTable";
+import Modal from "../../../components/modal/Modal";
+import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,
   showLoadingToast,
   dismissToast,
-} from "../../components/alert/ToastAlert";
+} from "../../../components/alert/ToastAlert";
 import { FiSearch, FiX } from "react-icons/fi";
 
-// Sample service types data
-interface ServiceTypes {
-  serviceTypeID: number;
-  serviceCode: string;
-  serviceName: string;
-  quantity: number;
-  serviceAmount: number;
+//Sample package data
+interface Package {
+  packageID: number;
+  packageCode: string;
+  packageName: string;
+  packageDuration: number;
   remarks: string;
+  roomPrice: number;
+  roomCost: number;
+  roomAmount: number;
+  foodAmount: number;
+  beverageAmount: number;
   isRoom: boolean;
   isBanquet: boolean;
 }
 
-export default function ServiceTypes() {
+export default function PackageInfo() {
   const [formData, setFormData] = useState({
-    serviceCode: "",
-    serviceName: "",
-    quantity: "",
-    serviceAmount: "",
+    packageCode: "",
+    packageName: "",
+    roomPrice: "",
+    roomCost: "",
+    packageDuration: "",
+    roomAmount: "",
+    foodAmount: "",
+    beverageAmount: "",
     remarks: "",
     type: "",
   });
@@ -39,12 +47,10 @@ export default function ServiceTypes() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [servicetype, setServiceType] = useState<ServiceTypes[]>([]);
+  const [packageInfo, setPackageInfo] = useState<Package[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredServiceTypes, setFilteredServiceTypes] = useState<
-    ServiceTypes[]
-  >([]);
+  const [filteredPackageInfo, setFilteredPackageInfo] = useState<Package[]>([]);
 
   const formatThousand = (value: string) => {
     const num = value.replace(/,/g, "");
@@ -58,46 +64,78 @@ export default function ServiceTypes() {
   ];
 
   // Define columns for the DataTable
-  const serviceColumn: Column<ServiceTypes>[] = [
+  const packageColumns: Column<Package>[] = [
     {
       key: "index",
       header: "#",
       width: "20",
       sortable: false,
-      render: (_value: any, _row: ServiceTypes, index: number) => (
+      render: (_value: any, _row: Package, index: number) => (
         <span className="font-medium text-gray-600 dark:text-gray-400">
           {index + 1}
         </span>
       ),
     },
     {
-      key: "serviceCode",
-      header: "Service Code",
+      key: "packageCode",
+      header: "Package Code",
       sortable: true,
       searchable: true,
     },
     {
-      key: "serviceName",
-      header: "Service Name",
+      key: "packageName",
+      header: "Package Name",
       sortable: true,
       searchable: true,
     },
     {
       key: "type",
-      header: "Service Type",
+      header: "Package Type",
       sortable: true,
       searchable: true,
     },
     {
-      key: "quantity",
-      header: "Quantity",
+      key: "packageDuration",
+      header: "Duration (Hrs)",
       sortable: true,
       searchable: true,
       align: "center",
     },
     {
-      key: "serviceAmount",
-      header: "Amount",
+      key: "roomAmount",
+      header: "Room Amount",
+      sortable: true,
+      searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
+    },
+    {
+      key: "roomPrice",
+      header: "Price",
+      sortable: true,
+      searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
+    },
+    {
+      key: "roomCost",
+      header: "Cost",
+      sortable: true,
+      searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
+    },
+    {
+      key: "foodAmount",
+      header: "Food Amount",
+      sortable: true,
+      searchable: true,
+      align: "right",
+      render: (value) => value?.toLocaleString(),
+    },
+    {
+      key: "beverageAmount",
+      header: "Beverage Amount",
       sortable: true,
       searchable: true,
       align: "right",
@@ -114,7 +152,7 @@ export default function ServiceTypes() {
   // Handle F3 key press
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key == "F3") {
+      if (event.key === "F3") {
         event.preventDefault();
         setIsModalOpen(true);
       }
@@ -129,15 +167,14 @@ export default function ServiceTypes() {
     };
   }, []);
 
-  const fetchServiceTypes = async () => {
+  const fetchPackageInfo = async () => {
     setLoading(true);
-
     try {
       const token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
 
-      const response = await fetch(`${API_BASE_URL}/api/ServiceType/getall`, {
+      const response = await fetch(`${API_BASE_URL}/api/PackageInfo/getall`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -149,24 +186,26 @@ export default function ServiceTypes() {
 
         // Ensure data is an array
         if (Array.isArray(data)) {
-          setServiceType(data);
+          setPackageInfo(data);
         } else {
-          setServiceType([]);
+          setPackageInfo([]);
           showErrorToast("Invalid data format received from server");
         }
       } else {
-        throw new Error(`Failed to fetch Service Types: ${response.status}`);
+        throw new Error(
+          `Failed to fetch Package Information: ${response.status}`
+        );
       }
     } catch (error) {
-      showErrorToast("Failed to load service types");
-      setServiceType([]);
+      showErrorToast("Failed to load package information");
+      setPackageInfo([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchServiceTypes();
+    fetchPackageInfo();
   }, []);
 
   const fetchNextCode = async () => {
@@ -177,7 +216,7 @@ export default function ServiceTypes() {
         sessionStorage.getItem("authToken");
 
       const response = await fetch(
-        `${API_BASE_URL}/api/ServiceType/getNextCode`,
+        `${API_BASE_URL}/api/PackageInfo/getNextCode`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -190,17 +229,17 @@ export default function ServiceTypes() {
 
         setFormData((prev) => ({
           ...prev,
-          serviceCode: data.nextCode || "",
+          packageCode: data.nextCode || "",
         }));
       } else {
-        throw new Error("Failed to fetch Room Type code");
+        throw new Error("Failed to fetch Package code");
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load room type code");
+      showErrorToast("Failed to load package code");
       setFormData((prev) => ({
         ...prev,
-        serviceCode: "",
+        packageCode: "",
       }));
     } finally {
       setLoading(false);
@@ -218,43 +257,48 @@ export default function ServiceTypes() {
 
     // Filter room types based on search term
     if (value.trim() === "") {
-      setFilteredServiceTypes([]);
+      setFilteredPackageInfo([]);
     } else {
-      const filtered = servicetype.filter(
-        (servicetype) =>
-          servicetype.serviceCode.toLowerCase().includes(value.toLowerCase()) ||
-          servicetype.serviceName.toLowerCase().includes(value.toLowerCase())
+      const filtered = packageInfo.filter(
+        (packageInfo) =>
+          packageInfo.packageCode.toLowerCase().includes(value.toLowerCase()) ||
+          packageInfo.packageName.toLowerCase().includes(value.toLowerCase())
       );
-      setFilteredServiceTypes(filtered);
+      setFilteredPackageInfo(filtered);
     }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredServiceTypes([]);
+    setFilteredPackageInfo([]);
     handleClear();
   };
 
   // Function to handle selecting a room type from search results
-  const handleSearchResultClick = (servicetype: ServiceTypes) => {
+  const handleSearchResultClick = (packageInfo: Package) => {
     setFormData({
-      serviceCode: servicetype.serviceCode,
-      serviceName: servicetype.serviceName,
-      quantity: servicetype.quantity.toString(),
-      serviceAmount: servicetype.serviceAmount.toString(),
-      remarks: servicetype.remarks || "",
-      type: servicetype.isRoom
+      packageCode: packageInfo.packageCode,
+      packageName: packageInfo.packageName,
+      roomPrice: packageInfo.roomPrice.toString(),
+      roomCost: packageInfo.roomCost.toString(),
+      packageDuration: packageInfo.packageDuration.toString(),
+      roomAmount: packageInfo.roomAmount.toString(),
+      foodAmount: packageInfo.foodAmount.toString(),
+      beverageAmount: packageInfo.beverageAmount.toString(),
+      remarks: packageInfo.remarks || "",
+      type: packageInfo.isRoom
         ? "Room"
-        : servicetype.isBanquet
+        : packageInfo.isBanquet
         ? "Banquet"
         : "",
     });
 
-    setEditingId(servicetype.serviceTypeID);
+    setEditingId(packageInfo.packageID);
     setSearchTerm("");
-    setFilteredServiceTypes([]);
+    setFilteredPackageInfo([]);
   };
 
+  // Handle select field changes
   const handleSelectChange = (field: string, value: string) => {
     setFormData({
       ...formData,
@@ -285,17 +329,45 @@ export default function ServiceTypes() {
     }));
   };
 
+  const validateForm = () => {
+    const requiredFields = [
+      { field: "packageName", label: "Package Name" },
+      { field: "type", label: "Package Type" },
+      { field: "roomAmount", label: "Room Amount" },
+      { field: "foodAmount", label: "Food Amount" },
+      { field: "beverageAmount", label: "Beverage Amount" },
+    ];
+
+    const errors: string[] = [];
+
+    requiredFields.forEach(({ field, label }) => {
+      const value = formData[field as keyof typeof formData];
+      if (
+        value === undefined ||
+        value === null ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
+        errors.push(`${label} is required`);
+      }
+    });
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.serviceName.trim() || !formData.type.trim()) {
-      showErrorToast("Please fill in required fields");
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showErrorToast(
+        `Please fill in required fields: ${validationErrors.join(", ")}`
+      );
       return;
     }
 
     setIsSubmitting(true);
     const loadingToastId = showLoadingToast(
-      editingId ? "Updating Service Type..." : "Adding Service Type..."
+      editingId ? "Updating Package Info..." : "Adding Package Info..."
     );
 
     try {
@@ -304,16 +376,20 @@ export default function ServiceTypes() {
         sessionStorage.getItem("authToken");
 
       const url = editingId
-        ? `${API_BASE_URL}/api/ServiceType/Update/${editingId}`
-        : `${API_BASE_URL}/api/ServiceType/add`;
+        ? `${API_BASE_URL}/api/PackageInfo/Update/${editingId}`
+        : `${API_BASE_URL}/api/PackageInfo/add`;
 
       // Prepare data with correct field names
       const requestData = {
-        ...(editingId && { serviceTypeID: editingId }),
-        serviceCode: formData.serviceCode || "",
-        serviceName: formData.serviceName.trim(),
-        quantity: parseFloat(formData.quantity) || 0,
-        serviceAmount: parseFloat(formData.serviceAmount) || 0,
+        ...(editingId && { packageID: editingId }),
+        packageCode: formData.packageCode || "",
+        packageName: formData.packageName.trim(),
+        packageDuration: parseFloat(formData.packageDuration) || 0,
+        roomPrice: parseFloat(formData.roomPrice) || 0,
+        roomCost: parseFloat(formData.roomCost) || 0,
+        roomAmount: parseFloat(formData.roomAmount) || 0,
+        foodAmount: parseFloat(formData.foodAmount) || 0,
+        beverageAmount: parseFloat(formData.beverageAmount) || 0,
         remarks: formData.remarks || "",
         isRoom: formData.type === "Room",
         isBanquet: formData.type === "Banquet",
@@ -334,11 +410,11 @@ export default function ServiceTypes() {
         dismissToast(loadingToastId);
         showSuccessToast(
           editingId
-            ? "Service Type updated successfully!"
-            : "Service Type added successfully!"
+            ? "Package Information updated successfully!"
+            : "Package Information added successfully!"
         );
         handleClear();
-        fetchServiceTypes();
+        fetchPackageInfo();
       } else {
         const errorText = await response.text();
         console.error("Error response:", errorText);
@@ -348,17 +424,19 @@ export default function ServiceTypes() {
       }
     } catch (error) {
       dismissToast(loadingToastId);
-      console.error("Error saving service type:", error);
+      console.error("Error saving package info:", error);
       showErrorToast(
-        error instanceof Error ? error.message : "Failed to save service type"
+        error instanceof Error
+          ? error.message
+          : "Failed to save package information"
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // handleRowClick function
-  const handleRowClick = (row: ServiceTypes) => {
+  // handle RowClick function
+  const handleRowClick = (row: Package) => {
     // Determine type from boolean flags
     let type = "";
     if (row.isRoom && row.isBanquet) type = "Room & Banquet";
@@ -366,28 +444,32 @@ export default function ServiceTypes() {
     else if (row.isBanquet) type = "Banquet";
 
     setFormData({
-      serviceCode: row.serviceCode || "",
-      serviceName: row.serviceName || "",
-      quantity: row.quantity.toString(),
-      serviceAmount: row.serviceAmount.toString(),
+      packageCode: row.packageCode || "",
+      packageName: row.packageName || "",
+      roomPrice: row.roomPrice.toString(),
+      roomCost: row.roomCost.toString(),
+      packageDuration: row.packageDuration.toString(),
+      roomAmount: row.roomAmount.toString(),
+      foodAmount: row.foodAmount.toString(),
+      beverageAmount: row.beverageAmount.toString(),
       remarks: row.remarks || "",
       type: type,
     });
-    setEditingId(row.serviceTypeID);
+    setEditingId(row.packageID);
     setIsModalOpen(false);
-
-    setTimeout(() => {
-      console.log("Editing ID set to:", row.serviceTypeID);
-    }, 0);
   };
 
   // handleClear function
   const handleClear = () => {
     setFormData({
-      serviceCode: "",
-      serviceName: "",
-      quantity: "",
-      serviceAmount: "",
+      packageCode: "",
+      packageName: "",
+      roomPrice: "",
+      roomCost: "",
+      packageDuration: "",
+      roomAmount: "",
+      foodAmount: "",
+      beverageAmount: "",
       remarks: "",
       type: "",
     });
@@ -398,8 +480,8 @@ export default function ServiceTypes() {
   return (
     <>
       <PageMeta
-        title="Service Types - Reservation System"
-        description="Manage service types"
+        title="Package Information - Reservation System"
+        description="Manage package information"
       />
 
       {/* Breadcrumb and Header container */}
@@ -416,14 +498,16 @@ export default function ServiceTypes() {
               </a>
             </li>
             <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Service Type</li>
+            <li className="text-gray-900 dark:text-white">
+              Package Information
+            </li>
           </ol>
         </nav>
 
         {/* Header */}
         <div className="order-1 lg:order-2">
           <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Service Type
+            Manage Package Information
           </h3>
         </div>
 
@@ -456,20 +540,20 @@ export default function ServiceTypes() {
               </div>
 
               {/* Search Results Dropdown */}
-              {searchTerm && filteredServiceTypes.length > 0 && (
+              {searchTerm && filteredPackageInfo.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredServiceTypes.map((servicetype) => (
+                  {filteredPackageInfo.map((packageInfo) => (
                     <div
-                      key={servicetype.serviceTypeID}
-                      onClick={() => handleSearchResultClick(servicetype)}
+                      key={packageInfo.packageID}
+                      onClick={() => handleSearchResultClick(packageInfo)}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {servicetype.serviceCode}
+                          {packageInfo.packageCode}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {servicetype.serviceName}
+                          {packageInfo.packageName}
                         </span>
                       </div>
                     </div>
@@ -479,11 +563,11 @@ export default function ServiceTypes() {
 
               {/* No Results Message */}
               {searchTerm &&
-                filteredServiceTypes.length === 0 &&
-                servicetype.length > 0 && (
+                filteredPackageInfo.length === 0 &&
+                packageInfo.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
                     <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No service types found
+                      No package info found
                     </div>
                   </div>
                 )}
@@ -491,26 +575,12 @@ export default function ServiceTypes() {
 
             <div className="w-full sm:flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Service Type Code
+                Package Code
               </label>
               <Input
-                name="serviceCode"
-                value={formData.serviceCode}
+                name="packageCode"
+                value={formData.packageCode}
                 readonly
-                className="w-full"
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="flex-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                name="serviceName"
-                value={formData.serviceName}
-                placeholder="Enter Service Name"
-                required
                 className="w-full"
                 onChange={handleInputChange}
               />
@@ -519,26 +589,24 @@ export default function ServiceTypes() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Quantity
+                  Package Type <span className="text-red-500">*</span>
                 </label>
-                <Input
-                  name="quantity"
-                  value={formData.quantity}
-                  placeholder="Enter Quantity"
-                  required
-                  className="w-full"
-                  type="number"
-                  onChange={handleInputChange}
+                <Select
+                  options={typeOptions}
+                  onChange={(value) => handleSelectChange("type", value)}
+                  placeholder="Select Type"
+                  value={formData.type}
+                  className="mb-0"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Amount
+                  Package Name <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  name="serviceAmount"
-                  value={formatThousand(formData.serviceAmount)}
-                  placeholder="Enter Service Amount"
+                  name="packageName"
+                  value={formData.packageName}
+                  placeholder="Enter Package Name"
                   required
                   className="w-full"
                   onChange={handleInputChange}
@@ -546,17 +614,91 @@ export default function ServiceTypes() {
               </div>
             </div>
 
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Type
-              </label>
-              <Select
-                options={typeOptions}
-                onChange={(value) => handleSelectChange("type", value)}
-                placeholder="Select Type"
-                value={formData.type}
-                className="mb-0"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Duration
+                </label>
+                <Input
+                  name="packageDuration"
+                  value={formData.packageDuration}
+                  placeholder="Enter Duration Hrs"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Amount
+                </label>
+                <Input
+                  name="roomAmount"
+                  value={formatThousand(formData.roomAmount)}
+                  placeholder="Enter Room Amount"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Price
+                </label>
+                <Input
+                  name="roomPrice"
+                  value={formatThousand(formData.roomPrice)}
+                  placeholder="Enter Price"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Cost
+                </label>
+                <Input
+                  name="roomCost"
+                  value={formatThousand(formData.roomCost)}
+                  placeholder="Enter Cost"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Food Amount
+                </label>
+                <Input
+                  name="foodAmount"
+                  value={formatThousand(formData.foodAmount)}
+                  placeholder="Enter Food Amount"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Beverage Amount
+                </label>
+                <Input
+                  name="beverageAmount"
+                  value={formatThousand(formData.beverageAmount)}
+                  placeholder="Enter Beverage Amount"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
             </div>
 
             <div className="flex-1 mt-6">
@@ -610,13 +752,13 @@ export default function ServiceTypes() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Select Service Type Information"
+        title="Select Package Information"
         size="auto"
-        columnCount={serviceColumn.length}
+        columnCount={packageColumns.length}
       >
         <DataTable
-          data={servicetype}
-          columns={serviceColumn}
+          data={packageInfo}
+          columns={packageColumns}
           loading={loading}
           searchable={true}
           pagination={true}
