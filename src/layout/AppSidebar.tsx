@@ -32,6 +32,8 @@ const navItems: NavItem[] = [
     name: "Master Entry",
     icon: <PageIcon />,
     subItems: [
+      { name: "Room", path: "/rooms" },
+      { name: "Banquet", path: "/banquets" },
       { name: "Room Type", path: "/room-types" },
       { name: "Event Type", path: "/event-types" },
       { name: "Package Info", path: "/package-info" },
@@ -263,9 +265,10 @@ const AppSidebar: React.FC = () => {
         ${isExpanded || isMobileOpen ? "w-[290px]" : "w-[90px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
-        ${isAnyModalOpen 
-          ? 'bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-white/20 dark:border-gray-700/50' 
-          : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800'
+        ${
+          isAnyModalOpen
+            ? "bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-white/20 dark:border-gray-700/50"
+            : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800"
         }`}
     >
       <div
