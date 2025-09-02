@@ -497,6 +497,7 @@ export default function Rooms() {
                   Room Type
                 </label>
                 <Select
+                  key={formData.roomTypeCode || "roomType"}
                   options={roomTypeOptions}
                   onChange={(value) =>
                     handleSelectChange("roomTypeCode", value)
@@ -525,6 +526,7 @@ export default function Rooms() {
                   Room Status
                 </label>
                 <Select
+                  key={formData.roomStatus || "roomStatus"}
                   options={roomStatusOptions}
                   onChange={(value) => handleSelectChange("roomStatus", value)}
                   placeholder="Select Type"
