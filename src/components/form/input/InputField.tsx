@@ -40,7 +40,7 @@ const Input: FC<InputProps> = ({
   let inputClasses = `w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
 
   if (disabled) {
-    inputClasses += ` text-gray-500 border-gray-300 opacity-40 bg-gray-100 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 opacity-40`;
+    inputClasses += ` border-gray-300 bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 focus:ring-0 focus:border-gray-300 dark:focus:border-gray-700`;
   } else if (error) {
     inputClasses += `  border-error-500 focus:border-error-300 focus:ring-error-500/20 dark:text-error-400 dark:border-error-500 dark:focus:border-error-800`;
   } else if (success) {
