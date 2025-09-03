@@ -70,6 +70,11 @@ interface ServiceTypes {
   isBanquet: boolean;
 }
 
+interface BookingResource {
+  reservationBookingResourceId: number;
+  bookingResourceName: string;
+}
+
 export default function RoomReservation() {
   const today = new Date().toISOString().split("T")[0];
   const [formData, setFormData] = useState({
@@ -101,6 +106,7 @@ export default function RoomReservation() {
     paymentRef: "",
     paymentDate: today,
     bookingRef: "",
+    bookingResourceId: null as number | null,
     reservationNo: "",
     reservationRef: "",
     reservationStatus: "",
@@ -117,6 +123,7 @@ export default function RoomReservation() {
       roomCode: string;
       roomDescription: string;
       packageCode: string;
+      packageName: string;
       roomPrice: string;
       noOfDays: string;
       amount: string;
@@ -171,8 +178,11 @@ export default function RoomReservation() {
 
   const [packageInfo, setPackageInfo] = useState<packageInfo[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypes[]>([]);
-
   const [countries, setCountries] = useState<Record<string, string>>({});
+  const [bookingResources, setBookingResources] = useState<BookingResource[]>(
+    []
+  );
+
   const [customerTypes, setCustomerTypes] = useState<Record<string, string>>(
     {}
   );
@@ -181,14 +191,11 @@ export default function RoomReservation() {
   );
   const [travelAgents, setTravelAgents] = useState<Record<string, string>>({});
 
-  const bookingStatusOptions = [
-    { value: "On Arrival", label: "On Arrival" },
-    { value: "Arrived", label: "Arrived" },
-  ];
-
   const StatuseOptions = [
-    { value: "Booked", label: "Booked" },
     { value: "Pending", label: "Pending" },
+    { value: "Booked", label: "Booked" },
+    { value: "Cancelled", label: "Cancelled" },
+    { value: "Finalized", label: "Finalized" },
   ];
 
   const payOptions = [
@@ -390,6 +397,35 @@ export default function RoomReservation() {
     }
   };
 
+  const fetchBookingResources = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_BASE_URL}/api/BookingResource/getall`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setBookingResources(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error("Failed to fetch Booking Resources");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load booking resources");
+      setBookingResources([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const buildLookup = (data: any[], codeKey: string, descKey: string) => {
     return data.reduce((acc, item) => {
       acc[item[codeKey]] = item[descKey];
@@ -444,7 +480,13 @@ export default function RoomReservation() {
     }
   };
 
-  const handleTypeChange = (_value: string) => {};
+  // const handleTypeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const { name, value } = e.target;
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     [name]: value,
+  //   }));
+  // };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -480,14 +522,13 @@ export default function RoomReservation() {
 
   // Handle package selection
   const handlePackageSelect = (packageCode: string) => {
-    // Find selected package
     const selectedPackage = packageInfo.find(
       (pack) => pack.packageCode === packageCode
     );
 
     setFormData((prev) => ({
       ...prev,
-      packageCode,
+      packageCode: packageCode,
       roomPrice: selectedPackage ? String(selectedPackage.roomPrice) : "",
     }));
   };
@@ -537,8 +578,8 @@ export default function RoomReservation() {
       }));
 
   const packageInfoOptions = packageInfo.map((packag) => ({
-    value: String(packag.packageCode),
-    label: `${packag.packageName}`,
+    value: packag.packageCode,
+    label: packag.packageName,
   }));
 
   const serviceTypeOptions = serviceTypes.map((service) => ({
@@ -546,10 +587,16 @@ export default function RoomReservation() {
     label: `${service.serviceName}`,
   }));
 
+  const bookingResourceOptions = bookingResources.map((booking) => ({
+    value: booking.reservationBookingResourceId.toString(),
+    label: booking.bookingResourceName,
+  }));
+
   useEffect(() => {
     if (!hasFetched.current) {
       hasFetched.current = true;
       fetchServiceTypes();
+      fetchBookingResources();
       fetchPackageInfo();
       fetchGuestInfo();
       fetchRoomTypes();
@@ -561,20 +608,17 @@ export default function RoomReservation() {
   const handleRowClick = (row: GuestInfo) => {
     setFormData({
       customerCode: row.customerCode || "",
-      customerTypeCode:
-        customerTypes[row.customerTypeCode] || row.customerTypeCode || "",
+      customerTypeCode: row.customerTypeCode || "",
       title: row.title || "",
       name: row.name || "",
       niC_PassportNo: row.niC_PassportNo || "",
-      nationalityCode:
-        nationalities[row.nationalityCode] || row.nationalityCode || "",
-      countryCode: countries[row.countryCode] || row.countryCode || "",
+      nationalityCode: row.nationalityCode || "",
+      countryCode: row.countryCode || "",
       mobile: row.mobile || "",
       telephone: row.telephone || "",
       email: row.email || "",
       address: row.address || "",
-      travelAgentCode:
-        travelAgents[row.travelAgentCode] || row.travelAgentCode || "",
+      travelAgentCode: row.travelAgentCode || "",
       creditLimit: row.creditLimit || "",
       roomTypeCode: "",
       roomCode: "",
@@ -591,6 +635,7 @@ export default function RoomReservation() {
       paymentRef: "",
       paymentDate: "",
       bookingRef: "",
+      bookingResourceId: 0,
       reservationNo: "",
       reservationRef: "",
       reservationStatus: "",
@@ -615,15 +660,20 @@ export default function RoomReservation() {
         r.roomCode === formData.roomCode
     );
 
+    const selectedPackage = packageInfo.find(
+      (p) => p.packageCode === formData.packageCode
+    );
+
+    console.log("Selected package:", selectedPackage);
+
     const newRow = {
       roomType:
         roomTypes.find((rt) => rt.roomTypeCode === formData.roomTypeCode)
           ?.description || "",
       roomCode: formData.roomCode,
       roomDescription: selectedRoom ? selectedRoom.description : "",
-      packageCode:
-        packageInfo.find((p) => p.packageCode === formData.packageCode)
-          ?.packageName || "",
+      packageCode: formData.packageCode || "",
+      packageName: selectedPackage ? selectedPackage.packageName : "",
       roomPrice: formData.roomPrice || "",
       noOfDays: formData.noOfDays || "",
       amount: formData.amount || formData.roomPrice || "",
@@ -631,7 +681,7 @@ export default function RoomReservation() {
 
     setReservationRows((prev) => [...prev, newRow]);
 
-    // Reset form fields
+    // Reset form fields + selects
     setFormData((prev) => ({
       ...prev,
       roomTypeCode: "",
@@ -669,7 +719,7 @@ export default function RoomReservation() {
 
     setServiceRows((prev) => [...prev, newRow]);
 
-    // Reset the form fields
+    // Reset dropdown + fields
     setFormData((prev) => ({
       ...prev,
       serviceCode: "",
@@ -836,10 +886,17 @@ export default function RoomReservation() {
     },
   ];
 
+  const combineDateTime = (dateStr: string, timeStr: string) => {
+    return `${dateStr}T${timeStr}:00`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const loadingToastId = showLoadingToast("Saving reservation...");
+
+    const checkInDateTime = combineDateTime(checkInDate, checkInTime);
+    const checkOutDateTime = combineDateTime(checkOutDate, checkOutTime);
 
     try {
       const token =
@@ -847,32 +904,24 @@ export default function RoomReservation() {
         sessionStorage.getItem("authToken");
 
       // Get logged in user from storage
-      const userData = JSON.parse(
-        localStorage.getItem("userData") ||
-          sessionStorage.getItem("userData") ||
-          "{}"
-      );
-      const loggedInUser = userData.username;
+      // const userData = JSON.parse(
+      //   localStorage.getItem("userData") ||
+      //     sessionStorage.getItem("userData") ||
+      //     "{}"
+      // );
+      // const loggedInUser = userData.username;
 
-      // Prepare check-in/check-out datetime strings
-      const checkInDateTime = `${checkInDate}T${checkInTime}:00`;
-      const checkOutDateTime = `${checkOutDate}T${checkOutTime}:00`;
-      const reservationDateTime = `${reservationDate}T${
-        new Date().toTimeString().split(" ")[0]
-      }`;
-
-      // Calculate days difference
-      const daysDifference = calculateDaysDifference(checkInDate, checkOutDate);
+      const reservationDateOnly = reservationDate;
 
       // Map room table rows to DTO
       const roomDetails = reservationRows.map((row) => ({
         roomCode: row.roomCode,
         packageCode: row.packageCode,
-        noOfDays: daysDifference,
+        noOfDays: row.noOfDays,
         price: Number(row.roomPrice) || 0,
         amount: Number(row.amount) || Number(row.roomPrice) || 0,
-        checkinDate: new Date(checkInDateTime),
-        checkoutDate: new Date(checkOutDateTime),
+        checkinDate: checkInDateTime,
+        checkoutDate: checkOutDateTime,
       }));
 
       // Map service table rows
@@ -881,20 +930,18 @@ export default function RoomReservation() {
           serviceTypes.find((s) => s.serviceName === row.serviceName)
             ?.serviceCode || row.serviceName;
         return {
-          serviceTypeCode: serviceCode, // Store service code
+          serviceTypeCode: serviceCode,
           serviceQuantity: Number(row.quantity) || 0,
           serviceAmount: Number(row.rate) || 0,
           serviceTotalAmount: Number(row.amount) || 0,
-          serviceDate: new Date(
-            `${row.serviceDate}T${new Date().toTimeString().split(" ")[0]}`
-          ),
+          serviceDate: row.serviceDate,
           serviceRemark: "",
         };
       });
 
       // Map payment table rows
       const roomPayDetails = paymentRows.map((row) => ({
-        paymentId: 0, // backend will generate
+        paymentId: 0,
         amount: Number(row.paymentAmount) || 0,
         refNo: row.paymentRef,
         refDate: new Date(row.paymentDate),
@@ -904,15 +951,15 @@ export default function RoomReservation() {
       // Build DTO payload
       const payload = {
         reservationNo: formData.reservationNo || "",
-        reservationDate: new Date(reservationDateTime),
+        reservationDate: reservationDateOnly,
         reservationType: 1,
         customerCode: formData.customerCode,
         mobile: formData.mobile,
         telephone: formData.telephone,
         email: formData.email,
         travelAgentCode: formData.travelAgentCode,
-        checkinDateTime: new Date(checkInDateTime),
-        checkoutDateTime: new Date(checkOutDateTime),
+        checkinDateTime: checkInDateTime,
+        checkoutDateTime: checkOutDateTime,
         noOfVehicles: Number(formData.noOfVehicle) || 0,
         noOfAdults: Number(formData.noOfAdults) || 0,
         noOfKids: Number(formData.noOfKids) || 0,
@@ -928,15 +975,18 @@ export default function RoomReservation() {
         refundAmount: calculatedAmounts.refundAmount,
         refundNote: formData.refundNote || "",
         referenceNo: formData.reservationRef,
-        bookingResourceId: 0,
+        packageCode: formData.packageCode,
+        bookingResourceId: formData.bookingResourceId || 0,
         bookingReferenceNo: formData.bookingRef,
         reservationStatus: formData.reservationStatus,
-        user: loggedInUser,
+        user: "Admin",
 
         roomDetails,
         serviceDetails,
         roomPayDetails,
       };
+
+      console.log("Reservation save payload:", payload);
 
       const response = await fetch(`${API_BASE_URL}/api/RoomReservation/save`, {
         method: "POST",
@@ -973,17 +1023,6 @@ export default function RoomReservation() {
     }
   };
 
-  // Helper function to calculate days difference
-  const calculateDaysDifference = (
-    startDate: string,
-    endDate: string
-  ): number => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
   const handleClear = () => {
     // Clear all form data
     setFormData({
@@ -1015,6 +1054,7 @@ export default function RoomReservation() {
       paymentRef: "",
       paymentDate: today,
       bookingRef: "",
+      bookingResourceId: null,
       reservationNo: "",
       reservationRef: "",
       remark: "",
@@ -1107,100 +1147,124 @@ export default function RoomReservation() {
                   {[
                     {
                       label: "Name",
-                      placeholder: "Enter Name",
                       name: "name",
                       value: formData.name,
+                      placeholder: "Enter Name",
                     },
                     {
                       label: "NIC/Passport",
-                      placeholder: "Enter NIC/Passport",
                       name: "niC_PassportNo",
                       value: formData.niC_PassportNo,
+                      placeholder: "Enter NIC/Passport",
                     },
                     {
                       label: "Customer Type",
-                      placeholder: "Enter Customer Type",
                       name: "customerTypeCode",
                       value: formData.customerTypeCode,
+                      placeholder: "Enter Customer Type",
                     },
                     {
                       label: "Nationality",
-                      placeholder: "Enter Nationality",
                       name: "nationalityCode",
                       value: formData.nationalityCode,
+                      placeholder: "Enter Nationality",
                     },
                     {
                       label: "Country",
-                      placeholder: "Enter Country",
                       name: "countryCode",
                       value: formData.countryCode,
+                      placeholder: "Enter Country",
                     },
                     {
                       label: "Mobile",
-                      placeholder: "Enter Mobile",
                       name: "mobile",
                       value: formData.mobile,
+                      placeholder: "Enter Mobile",
                     },
                     {
                       label: "Telephone",
-                      placeholder: "Enter Telephone",
                       name: "telephone",
                       value: formData.telephone,
+                      placeholder: "Enter Telephone",
                     },
                     {
                       label: "Email",
-                      placeholder: "Enter Email",
                       name: "email",
                       value: formData.email,
+                      placeholder: "Enter Email",
                     },
                     {
                       label: "Credit Limit",
-                      placeholder: "Enter Credit Limit",
-                      type: "number",
                       name: "creditLimit",
                       value: formData.creditLimit,
+                      type: "number",
+                      placeholder: "Enter Credit Limit",
                     },
                     {
                       label: "Booking Ref",
-                      placeholder: "Enter Booking Ref",
-                      value: formData.bookingRef,
                       name: "bookingRef",
+                      value: formData.bookingRef,
+                      placeholder: "Enter Booking Ref",
                     },
                     {
                       label: "Travel Agent",
-                      placeholder: "Enter Travel Agent",
                       name: "travelAgentCode",
                       value: formData.travelAgentCode,
+                      placeholder: "Enter Travel Agent",
                     },
-                  ].map((field, index) => (
-                    <div
-                      key={index}
-                      className="flex flex-col sm:flex-row sm:items-center"
-                    >
-                      <label className="w-full sm:w-40 text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {field.label}
-                      </label>
-                      <Input
-                        type={field.type || "text"}
-                        placeholder={field.placeholder}
-                        name={field.name}
-                        value={field.value || ""}
-                        required
-                        className="flex-1 w-full min-w-[280px] h-9"
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  ))}
+                  ].map((field, index) => {
+                    // For description fields, replace value shown
+                    let displayValue = field.value;
+                    if (field.name === "countryCode") {
+                      displayValue = countries[field.value] || "";
+                    } else if (field.name === "customerTypeCode") {
+                      displayValue = customerTypes[field.value] || "";
+                    } else if (field.name === "nationalityCode") {
+                      displayValue = nationalities[field.value] || "";
+                    } else if (field.name === "travelAgentCode") {
+                      displayValue = travelAgents[field.value] || "";
+                    }
+
+                    return (
+                      <div
+                        key={index}
+                        className="flex flex-col sm:flex-row sm:items-center"
+                      >
+                        <label className="w-full sm:w-40 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {field.label}
+                        </label>
+                        <Input
+                          type={field.type || "text"}
+                          placeholder={field.placeholder}
+                          name={field.name}
+                          value={displayValue}
+                          required
+                          className="flex-1 w-full min-w-[280px] h-9"
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    );
+                  })}
 
                   <div className="flex flex-col sm:flex-row sm:items-center">
                     <label className="sm:w-40 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Booking Status
                     </label>
                     <Select
-                      options={bookingStatusOptions}
-                      placeholder="Select Booking Status"
-                      onChange={handleTypeChange}
+                      options={bookingResourceOptions}
+                      placeholder="Select Booking Resource"
                       className="sm:w-70 w-full h-10"
+                      value={
+                        formData.bookingResourceId
+                          ? String(formData.bookingResourceId)
+                          : ""
+                      }
+                      onChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          bookingResourceId: value ? Number(value) : null,
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -1219,6 +1283,8 @@ export default function RoomReservation() {
                         ? "reservationNo"
                         : "reservationRef";
 
+                    const isReadOnly = label === "Reservation #";
+
                     return (
                       <div
                         key={index}
@@ -1232,7 +1298,7 @@ export default function RoomReservation() {
                           required
                           className="flex-1 w-full min-w-[300px] h-9"
                           value={formData[fieldKey]}
-                          // Update the state on change
+                          readonly={isReadOnly}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
@@ -1307,7 +1373,12 @@ export default function RoomReservation() {
                       options={StatuseOptions}
                       placeholder="Select Status"
                       className="sm:w-75 w-full h-10"
-                      onChange={handleTypeChange}
+                      onChange={(value) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          reservationStatus: value,
+                        }));
+                      }}
                     />
                   </div>
 
@@ -1528,7 +1599,7 @@ export default function RoomReservation() {
                               {row.noOfDays}
                             </TableCell>
                             <TableCell className="px-3 sm:px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                              {row.packageCode}
+                              {row.packageName}
                             </TableCell>
                             <TableCell className="px-3 sm:px-5 py-3 text-sm text-right text-gray-700 dark:text-gray-300">
                               {Number(row.roomPrice).toLocaleString()}
