@@ -644,15 +644,15 @@ export default function GuestInfo() {
     }));
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFormData((prev) => ({
-        ...prev,
-        // image: file.name,
-      }));
-    }
-  };
+  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (file) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       // image: file.name,
+  //     }));
+  //   }
+  // };
 
   const validateForm = () => {
     const requiredFields = [
