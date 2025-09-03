@@ -609,7 +609,6 @@ export default function RoomReservation() {
       return;
     }
 
-    // Find selected room description
     const selectedRoom = rooms.find(
       (r) =>
         r.roomTypeCode === formData.roomTypeCode &&
@@ -621,7 +620,7 @@ export default function RoomReservation() {
         roomTypes.find((rt) => rt.roomTypeCode === formData.roomTypeCode)
           ?.description || "",
       roomCode: formData.roomCode,
-      roomDescription: selectedRoom ? selectedRoom.description : "", // <-- Add this
+      roomDescription: selectedRoom ? selectedRoom.description : "",
       packageCode:
         packageInfo.find((p) => p.packageCode === formData.packageCode)
           ?.packageName || "",
@@ -632,7 +631,7 @@ export default function RoomReservation() {
 
     setReservationRows((prev) => [...prev, newRow]);
 
-    // Reset form fields for next entry
+    // Reset form fields
     setFormData((prev) => ({
       ...prev,
       roomTypeCode: "",
@@ -660,7 +659,6 @@ export default function RoomReservation() {
       (s) => s.serviceCode === formData.serviceCode
     );
 
-    // Create a new row object with the selected service data
     const newRow = {
       serviceName: selectedService ? selectedService.serviceName : "",
       rate: selectedService ? String(selectedService.serviceAmount) : "",
@@ -669,10 +667,9 @@ export default function RoomReservation() {
       serviceDate: formData.serviceDate,
     };
 
-    // Update the service rows state by appending the new row
     setServiceRows((prev) => [...prev, newRow]);
 
-    // Reset the form fields to their initial
+    // Reset the form fields
     setFormData((prev) => ({
       ...prev,
       serviceCode: "",
@@ -702,6 +699,7 @@ export default function RoomReservation() {
 
     setPaymentRows((prev) => [...prev, newRow]);
 
+    // Reset dropdown + fields
     setFormData((prev) => ({
       ...prev,
       paymentType: "",
@@ -713,25 +711,36 @@ export default function RoomReservation() {
 
   // Calculate amounts whenever reservationRows or paymentRows change
   useEffect(() => {
-    // Calculate sub total from reservation rows
-    const subTotal = reservationRows.reduce((total, row) => {
+    // Reservation subtotal
+    const reservationTotal = reservationRows.reduce((total, row) => {
       const rowAmount =
         parseFloat(row.amount) || parseFloat(row.roomPrice) || 0;
       return total + rowAmount;
     }, 0);
 
-    // Calculate discount amount
-    const discountAmount = subTotal * (calculatedAmounts.discountPercent / 100);
+    // Services subtotal
+    const serviceTotal = serviceRows.reduce((total, row) => {
+      return total + (parseFloat(row.amount) || 0);
+    }, 0);
 
-    // Calculate gross amount (after discount)
+    const subTotal = reservationTotal + serviceTotal;
+
+    // Discount logic
+    let discountAmount = calculatedAmounts.discountAmount;
+
+    if (calculatedAmounts.discountPercent > 0) {
+      discountAmount = subTotal * (calculatedAmounts.discountPercent / 100);
+    }
+
+    // Gross after discount
     const grossAmount = subTotal - discountAmount;
 
-    // Calculate total paid amount from payment rows
+    // Paid amount from payments
     const paidAmount = paymentRows.reduce((total, row) => {
       return total + (parseFloat(row.paymentAmount) || 0);
     }, 0);
 
-    // Calculate due amount
+    // Due amount
     const dueAmount = Math.max(0, grossAmount - paidAmount);
 
     setCalculatedAmounts((prev) => ({
@@ -742,7 +751,13 @@ export default function RoomReservation() {
       paidAmount,
       dueAmount,
     }));
-  }, [reservationRows, paymentRows, calculatedAmounts.discountPercent]);
+  }, [
+    reservationRows,
+    serviceRows,
+    paymentRows,
+    calculatedAmounts.discountPercent,
+    calculatedAmounts.discountAmount,
+  ]);
 
   // Handle discount percentage change
   const handleDiscountPercentChange = (
@@ -752,6 +767,19 @@ export default function RoomReservation() {
     setCalculatedAmounts((prev) => ({
       ...prev,
       discountPercent,
+      discountAmount: 0,
+    }));
+  };
+
+  // Handle discount amount change
+  const handleDiscountAmountChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const discountAmount = parseFloat(e.target.value) || 0;
+    setCalculatedAmounts((prev) => ({
+      ...prev,
+      discountAmount,
+      discountPercent: 0,
     }));
   };
 
@@ -781,10 +809,12 @@ export default function RoomReservation() {
       type: "number",
     },
     {
-      label: "Discount",
-      value: calculatedAmounts.discountAmount.toLocaleString(),
-      disabled: true,
+      label: "Discount Amount",
+      value: calculatedAmounts.discountAmount,
+      disabled: false,
       name: "discountAmount",
+      onChange: handleDiscountAmountChange,
+      type: "number",
     },
     {
       label: "Gross Amount",
@@ -1406,7 +1436,6 @@ export default function RoomReservation() {
                       />
 
                       <Select
-                        key={formData.roomTypeCode || "room"}
                         options={getRoomOptions(formData.roomTypeCode)}
                         placeholder={
                           formData.roomTypeCode
@@ -1466,7 +1495,7 @@ export default function RoomReservation() {
                           {[
                             "Room Type",
                             "Room No",
-                            "Qty",
+                            "No Of Days",
                             "Package Info",
                             "Amount",
                           ].map((header, index) => (
@@ -1550,16 +1579,17 @@ export default function RoomReservation() {
                         }
                       />
 
-                      <DatePicker
+                      <Input
                         id="service-date-picker"
                         placeholder="Select a date"
-                        value={formData.serviceDate}
-                        onChange={(_, currentDateString) => {
+                        type="date"
+                        value={formData.serviceDate || today}
+                        onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            serviceDate: currentDateString,
-                          }));
-                        }}
+                            serviceDate: e.target.value,
+                          }))
+                        }
                       />
 
                       <Button
