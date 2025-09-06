@@ -1953,6 +1953,7 @@ export default function RoomReservation() {
                   Submit
                 </Button>
                 <Button
+                  onClick={handleClear}
                   type="button"
                   size="md"
                   className="w-full sm:w-30 h-10 bg-gray-500 hover:bg-gray-600 text-white"
