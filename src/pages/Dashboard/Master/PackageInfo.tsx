@@ -28,6 +28,7 @@ interface Package {
   beverageAmount: number;
   isRoom: boolean;
   isBanquet: boolean;
+  isVilla: boolean;
 }
 
 export default function PackageInfo() {
@@ -60,6 +61,7 @@ export default function PackageInfo() {
 
   const typeOptions = [
     { value: "Room", label: "Room" },
+    { value: "Villa", label: "Villa" },
     { value: "Banquet", label: "Banquet" },
   ];
 
@@ -290,6 +292,8 @@ export default function PackageInfo() {
         ? "Room"
         : packageInfo.isBanquet
         ? "Banquet"
+        : packageInfo.isVilla
+        ? "Villa"
         : "",
     });
 
@@ -306,7 +310,15 @@ export default function PackageInfo() {
     });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleNumericInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
     // Remove all commas for internal value
@@ -393,9 +405,8 @@ export default function PackageInfo() {
         remarks: formData.remarks || "",
         isRoom: formData.type === "Room",
         isBanquet: formData.type === "Banquet",
+        isVilla: formData.type === "Villa",
       };
-
-      console.log("Request data:", requestData);
 
       const response = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -437,21 +448,23 @@ export default function PackageInfo() {
 
   // handle RowClick function
   const handleRowClick = (row: Package) => {
-    // Determine type from boolean flags
-    let type = "";
-    if (row.isRoom && row.isBanquet) type = "Room & Banquet";
-    else if (row.isRoom) type = "Room";
-    else if (row.isBanquet) type = "Banquet";
+    // Determine type from boolean flags - handle all combinations
+    const types: string[] = [];
+    if (row.isRoom) types.push("Room");
+    if (row.isBanquet) types.push("Banquet");
+    if (row.isVilla) types.push("Villa");
+
+    const type = types.join(" & ");
 
     setFormData({
       packageCode: row.packageCode || "",
       packageName: row.packageName || "",
-      roomPrice: row.roomPrice.toString(),
-      roomCost: row.roomCost.toString(),
-      packageDuration: row.packageDuration.toString(),
-      roomAmount: row.roomAmount.toString(),
-      foodAmount: row.foodAmount.toString(),
-      beverageAmount: row.beverageAmount.toString(),
+      roomPrice: row.roomPrice?.toString() || "",
+      roomCost: row.roomCost?.toString() || "",
+      packageDuration: row.packageDuration?.toString() || "",
+      roomAmount: row.roomAmount?.toString() || "",
+      foodAmount: row.foodAmount?.toString() || "",
+      beverageAmount: row.beverageAmount?.toString() || "",
       remarks: row.remarks || "",
       type: type,
     });
@@ -582,7 +595,7 @@ export default function PackageInfo() {
                 value={formData.packageCode}
                 readonly
                 className="w-full"
-                onChange={handleInputChange}
+                onChange={handleTextInputChange}
               />
             </div>
 
@@ -609,7 +622,7 @@ export default function PackageInfo() {
                   placeholder="Enter Package Name"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleTextInputChange}
                 />
               </div>
             </div>
@@ -625,7 +638,7 @@ export default function PackageInfo() {
                   placeholder="Enter Duration Hrs"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleTextInputChange}
                 />
               </div>
               <div>
@@ -638,7 +651,7 @@ export default function PackageInfo() {
                   placeholder="Enter Room Amount"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleNumericInputChange}
                 />
               </div>
             </div>
@@ -654,7 +667,7 @@ export default function PackageInfo() {
                   placeholder="Enter Price"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleNumericInputChange}
                 />
               </div>
               <div>
@@ -667,7 +680,7 @@ export default function PackageInfo() {
                   placeholder="Enter Cost"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleNumericInputChange}
                 />
               </div>
             </div>
@@ -683,7 +696,7 @@ export default function PackageInfo() {
                   placeholder="Enter Food Amount"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleNumericInputChange}
                 />
               </div>
               <div>
@@ -696,7 +709,7 @@ export default function PackageInfo() {
                   placeholder="Enter Beverage Amount"
                   required
                   className="w-full"
-                  onChange={handleInputChange}
+                  onChange={handleNumericInputChange}
                 />
               </div>
             </div>
