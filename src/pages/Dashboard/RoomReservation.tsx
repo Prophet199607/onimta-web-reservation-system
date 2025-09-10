@@ -21,6 +21,7 @@ import {
   TableRow,
   TableCell,
 } from "../../components/ui/table";
+import { FiSearch } from "react-icons/fi";
 
 interface GuestInfo {
   CustomerID: number;
@@ -1130,18 +1131,29 @@ export default function RoomReservation() {
                   Guest Information
                 </h2>
                 <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center">
-                    <label className="sm:w-40 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                    <label className="sm:w-38 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Guest Code
                     </label>
-                    <Input
-                      name="customerCode"
-                      value={formData.customerCode}
-                      onChange={handleInputChange}
-                      placeholder="Enter Guest code"
-                      required
-                      className="flex-1 w-full min-w-[280px] h-9"
-                    />
+
+                    <div className="flex flex-1 items-center gap-2">
+                      <Input
+                        name="customerCode"
+                        value={formData.customerCode}
+                        onChange={handleInputChange}
+                        placeholder="Enter Guest code"
+                        required
+                        className="flex-1 w-full min-w-[230px] h-9"
+                      />
+                      {/* F3 Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(true)}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                      >
+                        <FiSearch className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   {[

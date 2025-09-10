@@ -327,58 +327,69 @@ export default function SetupStyleTypes() {
         <div className="mx-auto w-full max-w-[1000px]">
           <form className="space-y-4" onSubmit={handleSubmit}>
             {/* Search Field */}
-            <div className="w-full sm:w-2/5 sm:ml-auto relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={handleChange}
-                placeholder="Search by code or description...."
-                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
-              />
+            <div className="w-full sm:w-2/5 sm:ml-auto relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleChange}
+                  placeholder="Search by code or description...."
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+                />
 
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                {searchTerm ? (
-                  <FiX
-                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
-                    onClick={clearSearch}
-                  />
-                ) : (
-                  <FiSearch className="w-4 h-4 text-gray-400" />
-                )}
-              </div>
-
-              {/* Search Results Dropdown */}
-              {searchTerm && filteredServiceStyleTypes.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredServiceStyleTypes.map((setupStyle) => (
-                    <div
-                      key={setupStyle.setupStyleTypeID}
-                      onClick={() => handleSearchResultClick(setupStyle)}
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {setupStyle.setupStyleCode}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {setupStyle.description}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="absolute inset-y-0 right-3 flex items-center">
+                  {searchTerm ? (
+                    <FiX
+                      className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
+                      onClick={clearSearch}
+                    />
+                  ) : (
+                    <FiSearch className="w-4 h-4 text-gray-400" />
+                  )}
                 </div>
-              )}
 
-              {/* No Results Message */}
-              {searchTerm &&
-                filteredServiceStyleTypes.length === 0 &&
-                setupStyleTypes.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
-                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No setup style types found
-                    </div>
+                {/* Search Results Dropdown */}
+                {searchTerm && filteredServiceStyleTypes.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
+                    {filteredServiceStyleTypes.map((setupStyle) => (
+                      <div
+                        key={setupStyle.setupStyleTypeID}
+                        onClick={() => handleSearchResultClick(setupStyle)}
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {setupStyle.setupStyleCode}
+                          </span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {setupStyle.description}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* No Results Message */}
+                {searchTerm &&
+                  filteredServiceStyleTypes.length === 0 &&
+                  setupStyleTypes.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
+                      <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
+                        No setup style types found
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              {/* F3 Button */}
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+              >
+                <FiSearch className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="w-full sm:flex-1">
