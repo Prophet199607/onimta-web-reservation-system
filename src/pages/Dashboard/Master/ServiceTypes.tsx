@@ -502,18 +502,32 @@ export default function ServiceTypes() {
               />
             </div>
 
-            <div className="flex-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                name="serviceName"
-                value={formData.serviceName}
-                placeholder="Enter Service Name"
-                required
-                className="w-full"
-                onChange={handleInputChange}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  name="serviceName"
+                  value={formData.serviceName}
+                  placeholder="Enter Service Name"
+                  required
+                  className="w-full"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Type
+                </label>
+                <Select
+                  options={typeOptions}
+                  onChange={(value) => handleSelectChange("type", value)}
+                  placeholder="Select Type"
+                  value={formData.type}
+                  className="mb-0"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -544,19 +558,6 @@ export default function ServiceTypes() {
                   onChange={handleInputChange}
                 />
               </div>
-            </div>
-
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Type
-              </label>
-              <Select
-                options={typeOptions}
-                onChange={(value) => handleSelectChange("type", value)}
-                placeholder="Select Type"
-                value={formData.type}
-                className="mb-0"
-              />
             </div>
 
             <div className="flex-1 mt-6">
