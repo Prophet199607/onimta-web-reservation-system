@@ -21,7 +21,9 @@ export default function AuthLayout({
     const interval = setInterval(() => {
       setFade(true);
       setTimeout(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % authImages.length);
+        setCurrentImageIndex(
+          (prevIndex) => (prevIndex + 1) % authImages.length
+        );
         setFade(false);
       }, 500);
     }, 5000);
@@ -57,6 +59,15 @@ export default function AuthLayout({
                     ? "bg-white scale-125"
                     : "bg-white/50"
                 }`}
+                onClick={() => {
+                  // Allow clicking dots to navigate to specific image
+                  setFade(true);
+                  setTimeout(() => {
+                    setCurrentImageIndex(index);
+                    setFade(false);
+                  }, 500);
+                }}
+                style={{ cursor: "pointer" }}
               />
             ))}
           </div>
