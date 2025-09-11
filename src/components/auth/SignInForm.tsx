@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-// import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import API_BASE_URL from "../../config/api";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
-  // const [isChecked, setIsChecked] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -55,7 +53,6 @@ export default function SignInForm() {
 
         // If response has a token, login is successful
         if (data.token) {
-          // Store token
           localStorage.setItem("authToken", data.token);
 
           // Store user data if available
@@ -169,18 +166,6 @@ export default function SignInForm() {
                 </div>
               </div>
             </form>
-
-            <div className="mt-5">
-              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Don&apos;t have an account? {""}
-                <Link
-                  to="/signup"
-                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  Sign Up
-                </Link>
-              </p>
-            </div>
           </div>
         </div>
       </div>
