@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
-import SignIn from "./pages/AuthPages/SignIn";
+import SignIn from "./pages/Auth/SignIn";
 import NotFound from "./pages/OtherPage/NotFound";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
@@ -32,6 +32,17 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// PublicRoute to redirect authenticated users away from login pages
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = localStorage.getItem("authToken");
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return <>{children}</>;
+};
+
 export default function App() {
   return (
     <>
@@ -42,7 +53,14 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Auth Layout */}
-          <Route path="/login" element={<SignIn />} />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <SignIn />
+              </PublicRoute>
+            }
+          />
 
           {/* Protected Dashboard Layout */}
           <Route
