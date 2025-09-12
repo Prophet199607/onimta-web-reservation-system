@@ -60,6 +60,7 @@ interface packageInfo {
   roomPrice: number;
   isRoom: boolean;
   isBanquet: boolean;
+  isVilla: boolean;
 }
 
 interface ServiceTypes {
@@ -160,7 +161,7 @@ export default function RoomReservation() {
     refundAmount: 0,
   });
 
-  // Add these new states for date/time handling
+  // New states for date/time handling
   const [checkInDate, setCheckInDate] = useState(today);
   const [checkOutDate, setCheckOutDate] = useState(today);
   const [checkInTime, setCheckInTime] = useState("08:00");
@@ -351,11 +352,11 @@ export default function RoomReservation() {
 
       if (response.ok) {
         const data = await response.json();
-        // Filter only packages where isRoom is true
-        const roomsOnly = Array.isArray(data)
-          ? data.filter((room: packageInfo) => room.isRoom === true)
+        // Filter packages where isRoom is true OR isVilla is true
+        const roomsAndVillas = Array.isArray(data)
+          ? data.filter((pkg) => pkg.isRoom === true || pkg.isVilla === true)
           : [];
-        setPackageInfo(roomsOnly);
+        setPackageInfo(roomsAndVillas);
       } else {
         throw new Error("Failed to fetch Packages");
       }
