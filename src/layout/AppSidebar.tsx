@@ -315,30 +315,30 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                src="/images/logo/logo.png"
+                src="/images/logo/onimta-logo.png"
                 alt="Logo"
-                width={32}
-                height={32}
+                width={50}
+                height={50}
               />
               <img
                 className="hidden dark:block"
-                src="/images/logo/logo.png"
+                src="/images/logo/onimta-logo.png"
                 alt="Logo"
-                width={32}
-                height={32}
+                width={50}
+                height={50}
               />
             </>
           ) : (
             <img
-              src="/images/logo/logo.png"
+              src="/images/logo/onimta-logo.png"
               alt="Logo"
-              width={32}
-              height={32}
+              width={50}
+              height={50}
             />
           )}
           {(isExpanded || isMobileOpen) && (
-            <h1 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">
-              Hotel Reservation System
+            <h1 className="ml-6 text-lg font-semibold text text-gray-900 dark:text-white">
+              ONIMTA SMART RESERVATION
             </h1>
           )}
         </Link>
