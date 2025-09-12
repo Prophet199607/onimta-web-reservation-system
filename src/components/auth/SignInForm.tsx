@@ -53,7 +53,15 @@ export default function SignInForm() {
 
         // If response has a token, login is successful
         if (data.token) {
-          localStorage.setItem("authToken", data.token);
+          // Store token with expiration information
+          const tokenData = {
+            token: data.token,
+            expiresAt: data.expiresIn
+              ? Date.now() + data.expiresIn * 1000
+              : null,
+          };
+
+          localStorage.setItem("authToken", JSON.stringify(tokenData));
 
           // Store user data if available
           if (data.user) {
@@ -64,7 +72,14 @@ export default function SignInForm() {
           setError("Login failed. Invalid credentials.");
         }
       } else {
-        setError("Login failed. Please check your credentials.");
+        // Handle specific HTTP error codes
+        if (response.status === 401) {
+          setError("Invalid username or password.");
+        } else if (response.status === 403) {
+          setError("Account disabled or access denied.");
+        } else {
+          setError("Login failed. Please check your credentials.");
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
