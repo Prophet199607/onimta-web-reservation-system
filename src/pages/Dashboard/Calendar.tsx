@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Select from "../../components/form/Select";
-import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
+import DatePicker from "../../components/form/date-picker";
 import ReservationCalendar from "../../components/calender/ReservationCalendar";
+import API_BASE_URL from "../../config/api";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { showErrorToast } from "../../components/alert/ToastAlert";
 
 // Define the reservation interface
 interface Reservation {
@@ -24,6 +28,15 @@ interface Reservation {
   };
 }
 
+interface Rooms {
+  roomTypeCode: string;
+  roomCode: string;
+  roomSize: string;
+  description: string;
+  isRoom: boolean;
+  isBanquet: boolean;
+}
+
 export default function Calendar() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -34,6 +47,11 @@ export default function Calendar() {
     start: null,
     end: null,
   });
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [rooms, setRooms] = useState<Rooms[]>([]);
+  const [loading, setLoading] = useState(false);
+  const hasFetched = useRef(false);
+  const navigate = useNavigate();
 
   const typeOptions = [
     { value: "All", label: "All" },
@@ -41,96 +59,46 @@ export default function Calendar() {
     { value: "Hall", label: "Hall" },
   ];
 
-  // Sample reservation data
-  const sampleReservations: Reservation[] = [
-    {
-      id: "1",
-      title: "Conference Room A - John Doe",
-      start: "2025-07-15",
-      end: "2025-07-16",
-      backgroundColor: "#3b82f6", // Blue for Checked In
-      borderColor: "#2563eb",
-      textColor: "#ffffff",
-      extendedProps: {
-        status: "Checked In",
-        customerName: "John Doe",
-        roomName: "Conference Room A",
-        size: "8 People",
-        phone: "+1-234-567-8901",
-        email: "john.doe@example.com",
-      },
-    },
-    {
-      id: "2",
-      title: "Meeting Hall - Jane Smith",
-      start: "2025-07-18",
-      end: "2025-07-20",
-      backgroundColor: "#10b981", // Green for Confirmed
-      borderColor: "#059669",
-      textColor: "#ffffff",
-      extendedProps: {
-        status: "Confirmed",
-        customerName: "Jane Smith",
-        roomName: "Meeting Hall",
-        size: "20 People",
-        phone: "+1-234-567-8902",
-        email: "jane.smith@example.com",
-      },
-    },
-    {
-      id: "3",
-      title: "Room B - Mike Johnson",
-      start: "2025-07-22",
-      backgroundColor: "#ef4444", // Red for Checked Out
-      borderColor: "#dc2626",
-      textColor: "#ffffff",
-      extendedProps: {
-        status: "Checked Out",
-        customerName: "Mike Johnson",
-        roomName: "Room B",
-        size: "4 People",
-        phone: "+1-234-567-8903",
-        email: "mike.johnson@example.com",
-      },
-    },
-    {
-      id: "4",
-      title: "Executive Suite - Sarah Wilson",
-      start: "2025-07-25",
-      end: "2025-07-27",
-      backgroundColor: "#f59e0b", // Yellow for Booked
-      borderColor: "#d97706",
-      textColor: "#ffffff",
-      extendedProps: {
-        status: "Booked",
-        customerName: "Sarah Wilson",
-        roomName: "Executive Suite",
-        size: "12 People",
-        phone: "+1-234-567-8904",
-        email: "sarah.wilson@example.com",
-      },
-    },
-    {
-      id: "5",
-      title: "Training Room - David Brown",
-      start: "2025-07-28",
-      end: "2025-07-30",
-      backgroundColor: "#8b5cf6", // Purple for Finalized
-      borderColor: "#7c3aed",
-      textColor: "#ffffff",
-      extendedProps: {
-        status: "Finalized",
-        customerName: "David Brown",
-        roomName: "Training Room",
-        size: "15 People",
-        phone: "+1-234-567-8905",
-        email: "david.brown@example.com",
-      },
-    },
-  ];
+  const fetchRooms = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(`${API_BASE_URL}/api/Room/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Filter only rooms where isRoom is true
+        const roomsOnly = Array.isArray(data)
+          ? data.filter((room) => room.isRoom === true || room.isVilla === true)
+          : [];
+        setRooms(roomsOnly);
+      } else {
+        throw new Error("Failed to fetch Rooms");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load rooms");
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchRooms();
+    }
+  }, []);
 
   // Handle search button click
-  const handleSearch = (e?: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSearch = async (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -138,15 +106,57 @@ export default function Calendar() {
 
       if (start <= end) {
         setDateRange({ start, end });
+
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/api/ReservationCalendar/calendar`,
+            {
+              params: {
+                startDate,
+                endDate,
+                calendarType: 1,
+              },
+            }
+          );
+
+          // Transform API data into Reservation[] for calendar
+          const apiData = response.data;
+          const mapped: Reservation[] = [];
+
+          apiData.forEach((room: any) => {
+            Object.entries(room.calendarDetails).forEach(([date, detail]) => {
+              if (detail) {
+                mapped.push({
+                  id: `${room.roomId}-${date}`,
+                  title: `${room.roomName} - ${detail}`,
+                  start: new Date(date).toISOString(),
+                  backgroundColor: "#10b981",
+                  borderColor: "#059669",
+                  textColor: "#ffffff",
+                  extendedProps: {
+                    status: "Booked",
+                    customerName: (detail as string) || "",
+                    roomName: room.roomName,
+                    size: room.roomSize,
+                    phone: "",
+                    email: "",
+                  },
+                });
+              }
+            });
+          });
+
+          setReservations(mapped);
+        } catch (err) {
+          console.error("Error fetching calendar data:", err);
+        }
       } else {
         alert("End date must be after start date");
       }
     } else if (startDate) {
-      // If only start date is provided, show single day
       const start = new Date(startDate);
       setDateRange({ start, end: start });
     } else {
-      // Reset to show current month if no dates selected
       setDateRange({ start: null, end: null });
     }
   };
@@ -226,11 +236,6 @@ export default function Calendar() {
               <span class="text-sm">${date.toLocaleDateString("en-US", {
                 weekday: "long",
               })}</span>
-            </div>
-            <div class="mt-3 text-center">
-              <button class="px-3 py-1 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700">
-                Create Reservation
-              </button>
             </div>
           </div>
         `;
@@ -314,32 +319,33 @@ export default function Calendar() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Reservation Date
                         </label>
-                        <Input
-                          placeholder="Select start date"
-                          required
-                          className="w-full"
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                        />
+                        <div className="w-full sm:w-[140px]">
+                          <DatePicker
+                            id="startDate"
+                            placeholder="Select start date"
+                            value={startDate}
+                            onChange={(_, dateStr) => setStartDate(dateStr)}
+                          />
+                        </div>
                       </div>
                       <div className="w-full sm:w-1/3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           End Date
                         </label>
-                        <Input
-                          placeholder="Select end date"
-                          required
-                          className="w-full"
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                        />
+                        <div className="w-full sm:w-[140px]">
+                          <DatePicker
+                            id="endDate"
+                            label=""
+                            placeholder="Select end date"
+                            value={endDate}
+                            onChange={(_, dateStr) => setEndDate(dateStr)}
+                          />
+                        </div>
                       </div>
                       <div className="w-full sm:w-1/3">
                         <Button
                           type="button"
-                          className="w-full sm:w-20 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300 mt-5"
+                          className="w-full sm:w-20 h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300 mt-5"
                           size="md"
                           onClick={handleSearch}
                         >
@@ -398,9 +404,10 @@ export default function Calendar() {
 
                     <div className="flex flex-col sm:flex-row gap-6 pt-6 pb-3 justify-center w-full max-w-md sm:max-w-xl mx-auto mt-4">
                       <Button
-                        type="submit"
+                        type="button"
                         className="w-full sm:w-38 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
                         size="md"
+                        onClick={() => navigate("/room-reservation")}
                       >
                         New Reservation
                       </Button>
@@ -435,9 +442,11 @@ export default function Calendar() {
                     <div className="max-w-full overflow-x-auto">
                       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                         <ReservationCalendar
-                          reservations={sampleReservations}
+                          reservations={reservations}
                           onCellClick={handleCalendarCellClick}
                           dateRange={dateRange}
+                          rooms={rooms}
+                          loading={loading}
                         />
                       </div>
                     </div>

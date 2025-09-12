@@ -23,6 +23,15 @@ interface DateRange {
   end: Date | null;
 }
 
+interface Room {
+  roomTypeCode: string;
+  roomCode: string;
+  roomSize: string;
+  description: string;
+  isRoom: boolean;
+  isBanquet: boolean;
+}
+
 interface ReservationCalendarProps {
   reservations: Reservation[];
   onCellClick?: (
@@ -31,21 +40,24 @@ interface ReservationCalendarProps {
     roomName: string
   ) => void;
   dateRange?: DateRange;
+  rooms?: Room[];
+  loading?: boolean;
 }
 
 const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
   reservations,
   onCellClick,
   dateRange,
+  rooms: fetchedRooms = [],
+  loading = false,
 }) => {
-  // Room data
-  const rooms = [
-    { name: "Conference Room A", size: "8" },
-    { name: "Meeting Hall", size: "20" },
-    { name: "Room B", size: "4" },
-    { name: "Executive Suite", size: "12" },
-    { name: "Training Room", size: "15" },
-  ];
+  // Transform fetched rooms to match the expected format
+  const rooms = fetchedRooms.map((room) => ({
+    name: room.description,
+    size: room.roomSize,
+    code: room.roomCode,
+    typeCode: room.roomTypeCode,
+  }));
 
   // Generate dates based on date range or current month
   const generateDates = () => {
@@ -105,6 +117,18 @@ const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
     const reservation = getReservationForCell(date, roomName);
     onCellClick?.(reservation, date, roomName);
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="w-full flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading rooms...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
