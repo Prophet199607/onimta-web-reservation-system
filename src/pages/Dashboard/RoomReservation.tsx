@@ -22,6 +22,7 @@ import {
   TableCell,
 } from "../../components/ui/table";
 import { FiSearch } from "react-icons/fi";
+import { handlePrintReceipt } from "../Prints/RoomReservationPrint";
 
 interface GuestInfo {
   CustomerID: number;
@@ -98,7 +99,7 @@ export default function RoomReservation() {
     packageCode: "",
     roomPrice: "",
     serviceCode: "",
-    noOfDays: "",
+    noOfDays: 1,
     serviceQty: "",
     amount: "",
     payAmount: "",
@@ -127,7 +128,7 @@ export default function RoomReservation() {
       packageCode: string;
       packageName: string;
       roomPrice: string;
-      noOfDays: string;
+      noOfDays: number;
       amount: string;
     }[]
   >([]);
@@ -252,6 +253,13 @@ export default function RoomReservation() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  const formatNumber = (value: string | number) => {
+    if (!value) return "";
+    const num = Number(value.toString().replace(/,/g, ""));
+    if (isNaN(num)) return "";
+    return new Intl.NumberFormat("en-US").format(num);
+  };
 
   const fetchGuestInfo = async () => {
     setLoading(true);
@@ -627,7 +635,7 @@ export default function RoomReservation() {
       packageCode: "",
       roomPrice: "",
       serviceCode: "",
-      noOfDays: "",
+      noOfDays: 1,
       serviceQty: "",
       amount: "",
       payAmount: "",
@@ -677,7 +685,7 @@ export default function RoomReservation() {
       packageCode: formData.packageCode || "",
       packageName: selectedPackage ? selectedPackage.packageName : "",
       roomPrice: formData.roomPrice || "",
-      noOfDays: formData.noOfDays || "",
+      noOfDays: formData.noOfDays || 1,
       amount: formData.amount || formData.roomPrice || "",
     };
 
@@ -690,7 +698,7 @@ export default function RoomReservation() {
       roomCode: "",
       packageCode: "",
       roomPrice: "",
-      noOfDays: "",
+      noOfDays: 1,
       amount: "",
     }));
   };
@@ -905,14 +913,6 @@ export default function RoomReservation() {
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
 
-      // Get logged in user from storage
-      // const userData = JSON.parse(
-      //   localStorage.getItem("userData") ||
-      //     sessionStorage.getItem("userData") ||
-      //     "{}"
-      // );
-      // const loggedInUser = userData.username;
-
       const reservationDateOnly = reservationDate;
 
       // Map room table rows to DTO
@@ -1009,7 +1009,28 @@ export default function RoomReservation() {
       const data = await response.json();
       dismissToast(loadingToastId);
       showSuccessToast("Reservation saved successfully!");
-      handleClear();
+
+      // Prepare print data
+      const printData = {
+        formData: formData,
+        reservationDate: reservationDate,
+        checkInDate: checkInDate,
+        checkOutDate: checkOutDate,
+        checkInTime: checkInTime,
+        checkOutTime: checkOutTime,
+        reservationRows: reservationRows.map((row) => ({
+          ...row,
+          noOfDays: String(row.noOfDays),
+        })),
+        paymentRows: paymentRows,
+        roomTypes: roomTypes,
+        reservationData: data,
+      };
+
+      // Automatically print receipt after successful save
+      setTimeout(() => {
+        handlePrintReceipt(printData);
+      }, 200);
 
       // Update form with reservation number if it's a new reservation
       if (!formData.reservationNo && data.reservationNo) {
@@ -1018,6 +1039,11 @@ export default function RoomReservation() {
           reservationNo: data.reservationNo,
         }));
       }
+
+      // Clear form after printing
+      setTimeout(() => {
+        handleClear();
+      }, 200);
     } catch (error) {
       dismissToast(loadingToastId);
       console.error("Reservation save error:", error);
@@ -1046,7 +1072,7 @@ export default function RoomReservation() {
       packageCode: "",
       roomPrice: "",
       serviceCode: "",
-      noOfDays: "",
+      noOfDays: 1,
       serviceQty: "",
       amount: "",
       payAmount: "",
@@ -1540,7 +1566,7 @@ export default function RoomReservation() {
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            noOfDays: e.target.value,
+                            noOfDays: Number(e.target.value),
                           }))
                         }
                       />
@@ -1835,6 +1861,23 @@ export default function RoomReservation() {
                       placeholder="Enter Amount"
                       required
                       className="flex-1 w-full min-w-[300px] h-9"
+                      type="text"
+                      value={formatNumber(formData.paymentAmount)}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, "");
+                        if (/^\d*\.?\d*$/.test(raw)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            paymentAmount: raw,
+                          }));
+                        }
+                      }}
+                    />
+                    {/* <Input
+                      name="paymentAmount"
+                      placeholder="Enter Amount"
+                      required
+                      className="flex-1 w-full min-w-[300px] h-9"
                       type="number"
                       value={formData.paymentAmount}
                       onChange={(e) =>
@@ -1843,7 +1886,7 @@ export default function RoomReservation() {
                           paymentAmount: e.target.value,
                         }))
                       }
-                    />
+                    /> */}
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-start">
