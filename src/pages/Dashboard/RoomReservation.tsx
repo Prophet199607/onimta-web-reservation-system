@@ -78,6 +78,16 @@ interface BookingResource {
   bookingResourceName: string;
 }
 
+interface PaymentTypes {
+  paymentID: number;
+  descrip: string;
+}
+
+interface ReservationStatus {
+  statusId: number;
+  statusName: string;
+}
+
 export default function RoomReservation() {
   const today = new Date().toISOString().split("T")[0];
   const [formData, setFormData] = useState({
@@ -168,6 +178,7 @@ export default function RoomReservation() {
   const [checkInTime, setCheckInTime] = useState("08:00");
   const [checkOutTime, setCheckOutTime] = useState("12:00");
   const [reservationDate, setReservationDate] = useState(today);
+  const [paymentDate, setPaymentDate] = useState(today);
 
   const hasFetched = useRef(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -181,6 +192,10 @@ export default function RoomReservation() {
 
   const [packageInfo, setPackageInfo] = useState<packageInfo[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypes[]>([]);
+  const [paymentTypes, setPaymentTypes] = useState<PaymentTypes[]>([]);
+  const [reservationStatus, setReservationStatus] = useState<
+    ReservationStatus[]
+  >([]);
   const [countries, setCountries] = useState<Record<string, string>>({});
   const [bookingResources, setBookingResources] = useState<BookingResource[]>(
     []
@@ -193,19 +208,6 @@ export default function RoomReservation() {
     {}
   );
   const [travelAgents, setTravelAgents] = useState<Record<string, string>>({});
-
-  const StatuseOptions = [
-    { value: "Pending", label: "Pending" },
-    { value: "Booked", label: "Booked" },
-    { value: "Cancelled", label: "Cancelled" },
-    { value: "Finalized", label: "Finalized" },
-  ];
-
-  const payOptions = [
-    { value: "Cash", label: "Cash" },
-    { value: "Credit Card", label: "Credit Card" },
-    { value: "Bank Transfer", label: "Bank Transfer" },
-  ];
 
   // Define columns for the DataTable
   const GuestInfoColumns: Column<GuestInfo>[] = [
@@ -407,6 +409,63 @@ export default function RoomReservation() {
     }
   };
 
+  const fetchPaymentTypes = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(`${API_BASE_URL}/api/PayType/getall`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentTypes(data);
+      } else {
+        throw new Error("Failed to fetch Payment Types");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load payment types");
+      setPaymentTypes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReservationStatus = async () => {
+    setLoading(true);
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/ReservationStatus/getall`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setReservationStatus(data);
+      } else {
+        throw new Error("Failed to fetch Reservation Status");
+      }
+    } catch (error) {
+      showErrorToast("Failed to load reservation status");
+      setReservationStatus([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchBookingResources = async () => {
     setLoading(true);
     try {
@@ -597,6 +656,16 @@ export default function RoomReservation() {
     label: `${service.serviceName}`,
   }));
 
+  const paymentTypeOptions = paymentTypes.map((payment) => ({
+    value: payment.descrip,
+    label: `${payment.descrip}`,
+  }));
+
+  const reservationStatusOptions = reservationStatus.map((status) => ({
+    value: status.statusName,
+    label: `${status.statusName}`,
+  }));
+
   const bookingResourceOptions = bookingResources.map((booking) => ({
     value: booking.reservationBookingResourceId.toString(),
     label: booking.bookingResourceName,
@@ -605,8 +674,10 @@ export default function RoomReservation() {
   useEffect(() => {
     if (!hasFetched.current) {
       hasFetched.current = true;
-      fetchServiceTypes();
+      fetchReservationStatus();
       fetchBookingResources();
+      fetchServiceTypes();
+      fetchPaymentTypes();
       fetchPackageInfo();
       fetchGuestInfo();
       fetchRoomTypes();
@@ -743,7 +814,7 @@ export default function RoomReservation() {
     if (
       !formData.paymentType ||
       !formData.paymentAmount ||
-      !formData.paymentDate ||
+      !paymentDate ||
       !formData.paymentRef
     ) {
       showErrorToast("Please fill all fields");
@@ -753,7 +824,7 @@ export default function RoomReservation() {
     const newRow = {
       paymentType: formData.paymentType,
       paymentAmount: formData.paymentAmount,
-      paymentDate: formData.paymentDate,
+      paymentDate: paymentDate,
       paymentRef: formData.paymentRef,
     };
 
@@ -765,8 +836,8 @@ export default function RoomReservation() {
       paymentType: "",
       paymentAmount: "",
       paymentRef: "",
-      paymentDate: today,
     }));
+    setPaymentDate(today);
   };
 
   // Calculate amounts whenever reservationRows or paymentRows change
@@ -1115,6 +1186,7 @@ export default function RoomReservation() {
     setCheckInTime("08:00");
     setCheckOutTime("12:00");
     setReservationDate(today);
+    setPaymentDate(today);
   };
 
   return (
@@ -1409,7 +1481,7 @@ export default function RoomReservation() {
                     </label>
                     <Select
                       value={formData.reservationStatus}
-                      options={StatuseOptions}
+                      options={reservationStatusOptions}
                       placeholder="Select Status"
                       className="sm:w-75 w-full h-10"
                       onChange={(value) => {
@@ -1839,7 +1911,7 @@ export default function RoomReservation() {
                       Pay Type
                     </label>
                     <Select
-                      options={payOptions}
+                      options={paymentTypeOptions}
                       placeholder="Select Pay Type"
                       className="sm:w-75 w-full h-10"
                       value={formData.paymentType}
@@ -1913,7 +1985,7 @@ export default function RoomReservation() {
                       Ref Date
                     </label>
                     <div className="flex gap-3">
-                      <DatePicker
+                      {/* <DatePicker
                         id="date-picker"
                         placeholder="Select a date"
                         value={formData.paymentDate}
@@ -1922,6 +1994,14 @@ export default function RoomReservation() {
                             ...prev,
                             paymentDate: currentDateString,
                           }));
+                        }}
+                      /> */}
+                      <DatePicker
+                        id="date-picker"
+                        placeholder="Select a date"
+                        value={paymentDate}
+                        onChange={(_, currentDateString) => {
+                          setPaymentDate(currentDateString);
                         }}
                       />
                       <Button
