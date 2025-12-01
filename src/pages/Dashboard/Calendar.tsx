@@ -839,4 +839,3 @@ const handleSearch = async () => {
     </>
   );
 }
-
