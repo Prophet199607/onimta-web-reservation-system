@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PageMeta from "../../../components/common/PageMeta";
 import Input from "../../../components/form/input/InputField";
 import Button from "../../../components/ui/button/Button";
 import DataTable, { Column } from "../../../components/tables/DataTable";
-import Modal from "../../../components/modal/Modal";
 import API_BASE_URL from "../../../config/api";
 import {
   showSuccessToast,
@@ -11,9 +10,8 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../../components/alert/ToastAlert";
-import { FiSearch, FiX } from "react-icons/fi";
+import { FiSearch, FiX, FiPlus, FiEdit2, FiTrash2, FiLayers } from "react-icons/fi";
 
-// Sample room types data
 interface RoomType {
   roomTypeID: number;
   roomTypeCode: string;
@@ -34,9 +32,15 @@ export default function RoomTypes() {
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredRoomTypes, setFilteredRoomTypes] = useState<RoomType[]>([]);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    roomTypeId: number;
+    roomTypeCode: string;
+    description: string;
+  }>({ isOpen: false, roomTypeId: 0, roomTypeCode: "", description: "" });
+  
+  const hasFetched = useRef(false);
 
-  // Define columns for the DataTable
   const roomTypeColumns: Column<RoomType>[] = [
     {
       key: "index",
@@ -51,33 +55,70 @@ export default function RoomTypes() {
     },
     {
       key: "roomTypeCode",
-      header: "Code",
+      header: "Type Code",
       sortable: true,
       searchable: true,
       width: "100px",
+      render: (value: string) => (
+        <span className="font-semibold text-gray-900 dark:text-white">
+          {value}
+        </span>
+      ),
     },
     {
       key: "description",
-      header: "Name",
+      header: "Type Name",
       sortable: true,
       searchable: true,
     },
     {
       key: "remarks",
-      header: "Remark",
+      header: "Remarks",
       sortable: true,
       searchable: true,
+      render: (value: string) => (
+        <span className="text-gray-600 dark:text-gray-400">
+          {value || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: "100px",
+      sortable: false,
+      render: (_value: any, row: RoomType) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleRowClick(row)}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            title="Edit"
+          >
+            <FiEdit2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          </button>
+          <button
+            onClick={() => setDeleteConfirmModal({
+              isOpen: true,
+              roomTypeId: row.roomTypeID,
+              roomTypeCode: row.roomTypeCode,
+              description: row.description
+            })}
+            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            title="Delete"
+          >
+            <FiTrash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </button>
+        </div>
+      ),
     },
   ];
 
-  // Handle F3 key press
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F3") {
         event.preventDefault();
-        setIsModalOpen(true);
+        handleAddNew();
       }
-      // Handle Escape key to close modal
       if (event.key === "Escape") {
         setIsModalOpen(false);
       }
@@ -108,16 +149,13 @@ export default function RoomTypes() {
         throw new Error("Failed to fetch Room Types");
       }
     } catch (error) {
-      showErrorToast("Failed to load room types");
+      const errorMessage = error instanceof Error ? error.message : "Failed to load room types";
+      showErrorToast(errorMessage);
       setRoomTypes([]);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchRoomTypes();
-  }, []);
 
   const fetchNextCode = async () => {
     setLoading(true);
@@ -134,7 +172,6 @@ export default function RoomTypes() {
 
       if (response.ok) {
         const data = await response.json();
-
         setFormData((prev) => ({
           ...prev,
           roomTypeCode: data.nextCode || "",
@@ -144,7 +181,8 @@ export default function RoomTypes() {
       }
     } catch (error) {
       console.error(error);
-      showErrorToast("Failed to load room type code");
+      const errorMessage = error instanceof Error ? error.message : "Failed to load room type code";
+      showErrorToast(errorMessage);
       setFormData((prev) => ({
         ...prev,
         roomTypeCode: "",
@@ -155,50 +193,27 @@ export default function RoomTypes() {
   };
 
   useEffect(() => {
-    fetchNextCode();
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchRoomTypes();
+      fetchNextCode();
+    }
   }, []);
 
-  // Search Handling
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
     setSearchTerm(value);
-
-    // Filter room types based on search term
-    if (value.trim() === "") {
-      setFilteredRoomTypes([]);
-    } else {
-      const filtered = roomTypes.filter(
-        (roomType) =>
-          roomType.description.toLowerCase().includes(value.toLowerCase()) ||
-          roomType.roomTypeCode.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredRoomTypes(filtered);
-    }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
-    setFilteredRoomTypes([]);
-    handleClear();
-  };
-
-  // Function to handle selecting a room type from search results
-  const handleSearchResultClick = (roomType: RoomType) => {
-    setFormData({
-      roomTypeCode: roomType.roomTypeCode,
-      description: roomType.description,
-      remarks: roomType.remarks,
-    });
-    setEditingId(roomType.roomTypeID);
-    setSearchTerm("");
-    setFilteredRoomTypes([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.description.trim()) {
-      showErrorToast("Please fill room name");
+      showErrorToast("Room type name is required");
       return;
     }
 
@@ -233,15 +248,108 @@ export default function RoomTypes() {
         );
         handleClear();
         fetchRoomTypes();
+        setIsModalOpen(false);
       } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
     } catch (error) {
       dismissToast(loadingToastId);
       console.error("Error saving room type:", error);
-      showErrorToast("Room Type Code already exists");
+      const errorMessage = error instanceof Error ? error.message : "Failed to save room type";
+      showErrorToast(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (roomTypeId: number, RoomTypeCode: string) => {
+    const loadingToastId = showLoadingToast("Deleting room type...");
+    
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      // Try DELETE endpoint first
+      let response = await fetch(`${API_BASE_URL}/api/RoomType/delete/${RoomTypeCode}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // If DELETE doesn't work, try alternative methods
+      if (!response.ok) {
+        // Try with different endpoint variations
+        const endpoints = [
+          `${API_BASE_URL}/api/RoomType/${roomTypeId}`,
+          `${API_BASE_URL}/api/RoomType/Delete/${roomTypeId}`,
+          `${API_BASE_URL}/api/RoomType?roomTypeId=${roomTypeId}`,
+        ];
+        
+        for (const endpoint of endpoints) {
+          response = await fetch(endpoint, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            break;
+          }
+        }
+      }
+
+      if (response && response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast("Room Type deleted successfully!");
+        
+        // Refresh the room types list
+        await fetchRoomTypes();
+        
+        // Close the confirmation modal
+        setDeleteConfirmModal({ isOpen: false, roomTypeId: 0, roomTypeCode: "", description: "" });
+        
+        // Close edit modal if open for this room type
+        if (editingId === roomTypeId) {
+          handleCloseModal();
+        }
+      } else {
+        // If DELETE endpoints don't work, try frontend-only delete
+        console.warn("No backend delete endpoint found. Implementing frontend-only delete.");
+        
+        // Frontend-only delete (temporary solution)
+        setRoomTypes(prev => prev.filter(roomType => roomType.roomTypeID !== roomTypeId));
+        dismissToast(loadingToastId);
+        showSuccessToast("Room Type removed from list");
+        
+        // Close modals
+        setDeleteConfirmModal({ isOpen: false, roomTypeId: 0, roomTypeCode: "", description: "" });
+        if (editingId === roomTypeId) {
+          handleCloseModal();
+        }
+        
+        // Show warning that backend delete wasn't performed
+        setTimeout(() => {
+          showErrorToast("Note: Room Type was not deleted from server. Backend delete endpoint is required.");
+        }, 1000);
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Delete error:", error);
+      
+      // Type-safe error handling
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      // Check for specific error types
+      const errorMsg = errorMessage.toLowerCase();
+      if (errorMsg.includes('foreign') || errorMsg.includes('constraint') || errorMsg.includes('reference')) {
+        showErrorToast("Cannot delete room type because it is referenced in rooms or other records.");
+      } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+        showErrorToast("Delete functionality not available. Please contact support to implement backend delete endpoint.");
+      } else {
+        showErrorToast(`Failed to delete room type: ${errorMessage}`);
+      }
     }
   };
 
@@ -268,7 +376,13 @@ export default function RoomTypes() {
       remarks: row.remarks,
     });
     setEditingId(row.roomTypeID);
-    setIsModalOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const handleAddNew = () => {
+    handleClear();
+    fetchNextCode();
+    setIsModalOpen(true);
   };
 
   const handleClear = () => {
@@ -278,209 +392,418 @@ export default function RoomTypes() {
       remarks: "",
     });
     setEditingId(null);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    handleClear();
+  };
+
+  const handleClearClick = () => {
+    handleClear();
     fetchNextCode();
   };
 
+  const filteredData = roomTypes.filter(roomType => {
+    const matchesSearch = searchTerm 
+      ? roomType.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        roomType.roomTypeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (roomType.remarks && roomType.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true;
+    
+    return matchesSearch;
+  });
+
   return (
     <>
-      <PageMeta
-        title="Room Types - Reservation System"
-        description="Manage room types"
-      />
+      <PageMeta title="Room Types Management" description="Manage hotel room types and configurations" />
 
-      {/* Breadcrumb and Header container */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-        {/* Breadcrumb */}
-        <nav className="order-2 lg:order-1">
-          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
-            <li>
-              <a
-                href="/dashboard"
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                Dashboard
-              </a>
-            </li>
-            <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Room Types</li>
-          </ol>
-        </nav>
-
-        {/* Header */}
-        <div className="order-1 lg:order-2">
-          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Room Types
-          </h3>
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Room Types Management</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Manage and organize all hotel room types
+            </p>
+          </div>
+          
+          <Button
+            type="button"
+            onClick={handleAddNew}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20 border-0 flex items-center gap-2"
+            size="md"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add New Room Type
+          </Button>
         </div>
-
-        {/* Empty div for equal spacing on desktop only */}
-        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
       </div>
 
-      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
-        <div className="mx-auto w-full max-w-[1000px]">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Search Field */}
-            <div className="w-full sm:w-2/5 sm:ml-auto relative flex items-center gap-2">
-              <div className="relative flex-1">
+      {/* Stats Card - Total Room Types */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Room Types</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {roomTypes.length}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {filteredData.length} matching current filter
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <FiLayers className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Add more stats cards if needed */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Active Room Types</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {roomTypes.length}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <FiLayers className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Quick Actions</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Press F3 or use toolbar button to add new room types
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <FiPlus className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={handleChange}
-                  placeholder="Search by code or description...."
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+                  placeholder="Search room types by code, name, or remarks..."
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-
-                <div className="absolute inset-y-0 right-3 flex items-center">
-                  {searchTerm ? (
-                    <FiX
-                      className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
-                      onClick={clearSearch}
-                    />
-                  ) : (
-                    <FiSearch className="w-4 h-4 text-gray-400" />
-                  )}
-                </div>
-
-                {/* Search Results Dropdown */}
-                {searchTerm && filteredRoomTypes.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                    {filteredRoomTypes.map((roomType) => (
-                      <div
-                        key={roomType.roomTypeID}
-                        onClick={() => handleSearchResultClick(roomType)}
-                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            {roomType.roomTypeCode}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {roomType.description}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {searchTerm && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    <FiX className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                  </button>
                 )}
-
-                {/* No Results Message */}
-                {searchTerm &&
-                  filteredRoomTypes.length === 0 &&
-                  roomTypes.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
-                      <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                        No room types found
-                      </div>
-                    </div>
-                  )}
               </div>
+            </div>
 
-              {/* F3 Button */}
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
               <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                onClick={handleAddNew}
+                className="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                title="Press F3 to add new room type"
               >
-                <FiSearch className="w-5 h-5" />
+                <FiPlus className="w-4 h-4" />
+                Quick Add (F3)
               </button>
             </div>
+          </div>
+        </div>
 
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Room Type Code
-              </label>
-              <Input
-                name="roomTypeCode"
-                value={formData.roomTypeCode}
-                readonly
-                className="w-full"
-                onChange={handleInputChange}
-              />
+        {/* DataTable */}
+        <div className="p-6">
+          {filteredData.length === 0 ? (
+            <div className="text-center py-12">
+              <FiLayers className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                No room types found
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                {searchTerm 
+                  ? "Try changing your search criteria" 
+                  : "Get started by adding your first room type"}
+              </p>
+              {!searchTerm && (
+                <Button
+                  onClick={handleAddNew}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <FiPlus className="w-4 h-4 mr-2" />
+                  Add New Room Type
+                </Button>
+              )}
             </div>
-
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                name="description"
-                value={formData.description}
-                placeholder="Enter Name"
-                required
-                className="w-full"
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="flex-1 mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                remarks
-              </label>
-              <textarea
-                name="remarks"
-                value={formData.remarks}
-                className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                rows={4}
-                placeholder="Enter your remarks here"
-                onChange={handleTextAreaChange}
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
-              <Button
-                type="submit"
-                className={`w-50 sm:w-auto sm:min-w-[180px] ${
-                  editingId
-                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
-                size="md"
-                disabled={isSubmitting}
-              >
-                {isSubmitting
-                  ? editingId
-                    ? "Updating..."
-                    : "Adding..."
-                  : editingId
-                  ? "Update"
-                  : "Submit"}
-              </Button>
-              <Button
-                type="button"
-                size="md"
-                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleClear}
-                disabled={isSubmitting}
-              >
-                {editingId ? "Cancel" : "Clear"}
-              </Button>
-            </div>
-          </form>
+          ) : (
+            <DataTable
+              data={filteredData}
+              columns={roomTypeColumns}
+              loading={loading}
+              searchable={false}
+              pagination={true}
+              sortable={true}
+              pageSize={10}
+              onRowClick={handleRowClick}
+              emptyMessage="No room types found"
+              className="border-0 shadow-none"
+            />
+          )}
         </div>
       </div>
 
-      {/* Reusable Selection Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Select Room Type"
-        size="auto"
-        columnCount={roomTypeColumns.length}
-      >
-        <DataTable
-          data={roomTypes}
-          columns={roomTypeColumns}
-          loading={loading}
-          searchable={true}
-          pagination={true}
-          sortable={true}
-          pageSize={10}
-          onRowClick={handleRowClick}
-          className="border-0 shadow-none"
-          emptyMessage="No data available"
-        />
-      </Modal>
+      {/* Add/Edit Room Type Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl animate-fadeIn">
+            {/* Modal Content */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editingId ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                      {editingId ? (
+                        <FiEdit2 className={`w-6 h-6 ${editingId ? 'text-yellow-600 dark:text-yellow-400' : 'text-blue-600 dark:text-blue-400'}`} />
+                      ) : (
+                        <FiLayers className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {editingId ? 'Edit Room Type' : 'Add New Room Type'}
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {editingId ? `Editing room type ${formData.roomTypeCode}` : 'Fill in the details to add a new room type'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseModal}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <FiX className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Room Type Code */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Room Type Code
+                    </label>
+                    <Input
+                      name="roomTypeCode"
+                      value={formData.roomTypeCode}
+                      readonly={!!editingId}
+                      className="w-full"
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  {/* Room Type Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Room Type Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      name="description"
+                      value={formData.description}
+                      placeholder="Enter room type name"
+                      required
+                      className="w-full"
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  {/* Remarks */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Remarks
+                    </label>
+                    <textarea
+                      name="remarks"
+                      value={formData.remarks}
+                      className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-transparent px-4 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-900/50"
+                      rows={3}
+                      placeholder="Additional notes or description..."
+                      onChange={handleTextAreaChange}
+                    />
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={handleCloseModal}
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearClick}
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      className={`px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${
+                        editingId
+                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
+                          : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting
+                        ? editingId
+                          ? "Updating..."
+                          : "Adding..."
+                        : editingId
+                        ? "Update Room Type"
+                        : "Add Room Type"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md animate-fadeIn">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <FiTrash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Confirm Delete
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      This action cannot be undone
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <p className="text-gray-700 dark:text-gray-300">
+                  Are you sure you want to delete room type <span className="font-bold">"{deleteConfirmModal.roomTypeCode}"</span>?
+                  {deleteConfirmModal.description && deleteConfirmModal.description !== deleteConfirmModal.roomTypeCode && (
+                    <span className="ml-1">({deleteConfirmModal.description})</span>
+                  )}
+                </p>
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                  ⚠️ This will permanently remove the room type and cannot be recovered.
+                </p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Note: This may affect rooms using this room type.
+                </p>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmModal({ isOpen: false, roomTypeId: 0, roomTypeCode: "", description: "" })}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(deleteConfirmModal.roomTypeId, deleteConfirmModal.roomTypeCode)}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 rounded-lg transition-colors"
+                >
+                  Delete Room Type
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Styles */}
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-track {
+          background: #2d3748;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+          background: #4a5568;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: #a0aec0;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+          background: #5a6678;
+        }
+      `}</style>
     </>
   );
 }

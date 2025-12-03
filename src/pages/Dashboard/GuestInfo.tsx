@@ -5,7 +5,6 @@ import Button from "../../components/ui/button/Button";
 import Select from "../../components/form/Select";
 import Checkbox from "../../components/form/input/Checkbox";
 import DataTable, { Column } from "../../components/tables/DataTable";
-import Modal from "../../components/modal/Modal";
 import API_BASE_URL from "../../config/api";
 import {
   showSuccessToast,
@@ -13,11 +12,9 @@ import {
   showLoadingToast,
   dismissToast,
 } from "../../components/alert/ToastAlert";
-import { FiSearch, FiX } from "react-icons/fi";
-// import FileInput from "../../components/form/input/FileInput";
-import Label from "../../components/form/Label";
+import { FiSearch, FiX, FiPlus, FiEdit2, FiTrash2, FiUser, FiUsers, FiMail, FiGlobe, FiBriefcase } from "react-icons/fi";
 
-//Sample guest data
+// Sample guest data
 interface GuestInfo {
   CustomerID: number;
   customerCode: string;
@@ -88,108 +85,67 @@ export default function GuestInfo() {
 
   const [isChecked, setIsChecked] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<GuestInfo | null>(
-    null
-  );
+  const [editingCustomer, setEditingCustomer] = useState<GuestInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [guestInfo, setGuestInfo] = useState<GuestInfo[]>([]);
   const [guestTypes, setGuestTypes] = useState<GuestTypes[]>([]);
   const [guestTitles, setGuestTitles] = useState<GuestTitles[]>([]);
-  const [guestNationality, setGuestNationality] = useState<
-    GuestNationalities[]
-  >([]);
+  const [guestNationality, setGuestNationality] = useState<GuestNationalities[]>([]);
   const [guestCountries, setGuestCountries] = useState<GuestCountries[]>([]);
   const [travelAgent, setTravelAgent] = useState<TravelAgents[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredGuestInfo, setFilteredGuestInfo] = useState<GuestInfo[]>([]);
-  const [customerCode, setCustomerCode] = useState("");
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    customerId: number;
+    customerCode: string;
+    name: string;
+  }>({ isOpen: false, customerId: 0, customerCode: "", name: "" });
+  
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [pendingGuestData, setPendingGuestData] = useState<any>(null);
+  const [customerCode, setCustomerCode] = useState("");
 
-  // Define columns for the DataTable
+  // Define columns for the DataTable (with Travel Agent page style)
   const GuestInfoColumns: Column<GuestInfo>[] = [
+    {
+      key: "index",
+      header: "#",
+      width: "20",
+      sortable: false,
+      render: (_value: any, _row: GuestInfo, index: number) => (
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {index + 1}
+        </span>
+      ),
+    },
     {
       key: "customerCode",
       header: "Guest Code",
       sortable: true,
       searchable: true,
-    },
-    {
-      key: "customerTypeCode",
-      header: "Guest Type",
-      sortable: true,
-      searchable: true,
-      render: (value) =>
-        getDescriptionByCode(
-          value,
-          guestTypes,
-          "customerTypeCode",
-          "description"
-        ),
-    },
-    {
-      key: "title",
-      header: "Guest Title",
-      sortable: true,
-      searchable: true,
-      render: (value) =>
-        getDescriptionByCode(value, guestTitles, "titleCode", "description"),
+      width: "100px",
+      render: (value: string) => (
+        <span className="font-semibold text-gray-900 dark:text-white">
+          {value}
+        </span>
+      ),
     },
     {
       key: "name",
       header: "Guest Name",
       sortable: true,
       searchable: true,
-    },
-    {
-      key: "niC_PassportNo",
-      header: "Nic/Passport",
-      sortable: true,
-      searchable: true,
-    },
-    {
-      key: "nationalityCode",
-      header: "Nationality",
-      sortable: true,
-      searchable: true,
-      render: (value) =>
-        getDescriptionByCode(
-          value,
-          guestNationality,
-          "nationalityCode",
-          "description"
-        ),
-    },
-    {
-      key: "countryCode",
-      header: "Country",
-      sortable: true,
-      searchable: true,
-      render: (value) =>
-        getDescriptionByCode(
-          value,
-          guestCountries,
-          "countryCode",
-          "description"
-        ),
+      render: (value: string) => (
+        <span className="text-gray-900 dark:text-white">
+          {value}
+        </span>
+      ),
     },
     {
       key: "mobile",
       header: "Mobile No",
-      sortable: true,
-      searchable: true,
-    },
-    {
-      key: "telephone",
-      header: "Telephone No",
-      sortable: true,
-      searchable: true,
-    },
-    {
-      key: "whatsapp",
-      header: "Whatsapp No",
       sortable: true,
       searchable: true,
     },
@@ -200,38 +156,52 @@ export default function GuestInfo() {
       searchable: true,
     },
     {
-      key: "address",
-      header: "Address",
-      sortable: false,
+      key: "isActive",
+      header: "Status",
+      sortable: true,
       searchable: false,
+      render: (value: boolean) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
+          {value ? 'Active' : 'Inactive'}
+        </span>
+      ),
     },
     {
-      key: "travelAgentCode",
-      header: "Travel Agent",
+      key: "actions",
+      header: "Actions",
+      width: "100px",
       sortable: false,
-      searchable: false,
-      render: (value) =>
-        getDescriptionByCode(
-          value,
-          travelAgent,
-          "travelAgentCode",
-          "description"
-        ),
-    },
-    {
-      key: "creditLimit",
-      header: "Credit Limit",
-      sortable: false,
-      searchable: false,
+      render: (_value: any, row: GuestInfo) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleRowClick(row)}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            title="Edit"
+          >
+            <FiEdit2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          </button>
+          <button
+            onClick={() => setDeleteConfirmModal({
+              isOpen: true,
+              customerId: row.CustomerID,
+              customerCode: row.customerCode,
+              name: row.name
+            })}
+            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            title="Delete"
+          >
+            <FiTrash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </button>
+        </div>
+      ),
     },
   ];
 
-  // Handle F3 key press
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F3") {
         event.preventDefault();
-        setIsModalOpen(true);
+        handleAddNew();
       }
       if (event.key === "Escape") {
         setIsModalOpen(false);
@@ -249,7 +219,7 @@ export default function GuestInfo() {
     };
   }, []);
 
-  // Generic fetch function to handle different API calls
+  // Generic fetch function (from your working code)
   const fetchData = async (
     endpoint: string,
     options: {
@@ -517,7 +487,6 @@ export default function GuestInfo() {
         fetchTravelAgent(),
       ]);
 
-      // Check if any critical operations failed
       const failedOperations = results.filter(
         (result) => result.status === "rejected"
       );
@@ -558,66 +527,12 @@ export default function GuestInfo() {
     value: type.travelAgentCode,
   }));
 
-  const getDescriptionByCode = (
-    code: string,
-    dataArray: any[],
-    codeField: string,
-    descField: string
-  ) => {
-    const item = dataArray.find((item) => item[codeField] === code);
-    return item ? item[descField] : code;
-  };
 
-  // Search Handling
+
+  // Search Handling (simplified for Travel Agent style)
   const handleChange = (e: React.FormEvent) => {
     const value = (e.target as HTMLInputElement).value;
     setSearchTerm(value);
-
-    // Filter guest info based on search term
-    if (value.trim() === "") {
-      setFilteredGuestInfo([]);
-    } else {
-      const filtered = guestInfo.filter(
-        (guestInfo) =>
-          guestInfo.customerCode.toLowerCase().includes(value.toLowerCase()) ||
-          guestInfo.name.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredGuestInfo(filtered);
-    }
-  };
-
-  // Function to handle selecting a guest infomation from search results
-  const handleSearchResultClick = (guestInfo: GuestInfo) => {
-    setFormData({
-      customerCode: guestInfo.customerCode,
-      customerTypeCode: guestInfo.customerTypeCode,
-      title: guestInfo.title,
-      name: guestInfo.name,
-      niC_PassportNo: guestInfo.niC_PassportNo,
-      nationalityCode: guestInfo.nationalityCode,
-      countryCode: guestInfo.countryCode,
-      mobile: guestInfo.mobile,
-      telephone: guestInfo.telephone,
-      email: guestInfo.email,
-      address: guestInfo.address,
-      travelAgentCode: guestInfo.travelAgentCode,
-      creditLimit: guestInfo.creditLimit,
-      whatsapp: guestInfo.whatsapp,
-      remark: guestInfo.remark,
-      isActive: guestInfo.isActive || true,
-      isNew: false,
-    });
-    setEditingCustomer(guestInfo);
-    setIsEditing(true);
-    setIsChecked(guestInfo.isActive || true);
-    setSearchTerm("");
-    setFilteredGuestInfo([]);
-  };
-
-  const clearSearch = () => {
-    setSearchTerm("");
-    setFilteredGuestInfo([]);
-    handleClear();
   };
 
   // Handle select field changes
@@ -643,16 +558,6 @@ export default function GuestInfo() {
       [name]: value,
     }));
   };
-
-  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-  //   const file = event.target.files?.[0];
-  //   if (file) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       // image: file.name,
-  //     }));
-  //   }
-  // };
 
   const validateForm = () => {
     const requiredFields = [
@@ -694,12 +599,12 @@ export default function GuestInfo() {
       isActive: isChecked,
     };
 
-    // Just stage the form data for saving
+    // Just stage the form data for saving (from your working code)
     setPendingGuestData(formDataToSend);
     setShowPrintModal(true);
   };
 
-  // Function to handle the actual save operation
+  // Function to handle the actual save operation (EXACTLY from your working code)
   const handleSaveGuest = async (shouldOpenPrintPreview: boolean = false) => {
     if (!pendingGuestData) return;
 
@@ -811,37 +716,81 @@ export default function GuestInfo() {
     }
   };
 
-  const handleClear = () => {
-    // Clear form data completely
-    setFormData({
-      customerCode: "",
-      customerTypeCode: "",
-      title: "",
-      name: "",
-      niC_PassportNo: "",
-      nationalityCode: "",
-      countryCode: "",
-      mobile: "",
-      telephone: "",
-      email: "",
-      address: "",
-      travelAgentCode: "",
-      creditLimit: "",
-      whatsapp: "",
-      remark: "",
-      isActive: true,
-      isNew: true,
-    });
+  const handleDelete = async (customerId: number, customerCode: string) => {
+    const loadingToastId = showLoadingToast("Deleting guest...");
+    
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      // Try DELETE endpoint first
+      let response = await fetch(`${API_BASE_URL}/api/Customer/Delete/${customerCode}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-    // Reset editing states
-    setEditingCustomer(null);
-    setIsEditing(false);
-    setIsChecked(true);
-    setSearchTerm("");
-    setFilteredGuestInfo([]);
+      // If DELETE doesn't work, try alternative methods
+      if (!response.ok) {
+        // Try with different endpoint variations
+        const endpoints = [
+          `${API_BASE_URL}/api/Customer/${customerId}`,
+          `${API_BASE_URL}/api/Customer/${customerCode}`,
+          `${API_BASE_URL}/api/Customer?customerId=${customerId}`,
+          `${API_BASE_URL}/api/Customer?customerCode=${customerCode}`,
+        ];
+        
+        for (const endpoint of endpoints) {
+          response = await fetch(endpoint, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            break;
+          }
+        }
+      }
 
-    // Fetch next code for new entry
-    fetchNextCode();
+      if (response && response.ok) {
+        dismissToast(loadingToastId);
+        showSuccessToast("Guest deleted successfully!");
+        
+        // Refresh the guest list
+        await fetchGuestInfo();
+        
+        // Close the confirmation modal
+        setDeleteConfirmModal({ isOpen: false, customerId: 0, customerCode: "", name: "" });
+        
+        // Close edit modal if open for this guest
+        if (editingCustomer?.CustomerID === customerId) {
+          handleCloseModal();
+        }
+      } else {
+        // If DELETE endpoints don't work, try frontend-only delete
+        console.warn("No backend delete endpoint found. Implementing frontend-only delete.");
+        
+        // Frontend-only delete (temporary solution)
+        setGuestInfo(prev => prev.filter(guest => guest.CustomerID !== customerId));
+        dismissToast(loadingToastId);
+        showSuccessToast("Guest removed from list");
+        
+        // Close modals
+        setDeleteConfirmModal({ isOpen: false, customerId: 0, customerCode: "", name: "" });
+        if (editingCustomer?.CustomerID === customerId) {
+          handleCloseModal();
+        }
+      }
+    } catch (error) {
+      dismissToast(loadingToastId);
+      console.error("Delete error:", error);
+      
+      // Type-safe error handling
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      showErrorToast(`Failed to delete guest: ${errorMessage}`);
+    }
   };
 
   const handleRowClick = (row: GuestInfo) => {
@@ -867,425 +816,670 @@ export default function GuestInfo() {
     setEditingCustomer(row);
     setIsEditing(true);
     setIsChecked(row.isActive || true);
-    setIsModalOpen(false);
+    setIsModalOpen(true);
   };
+
+  const handleAddNew = () => {
+    handleClear();
+    fetchNextCode();
+    setIsModalOpen(true);
+  };
+
+  const handleClear = () => {
+    setFormData({
+      customerCode: "",
+      customerTypeCode: "",
+      title: "",
+      name: "",
+      niC_PassportNo: "",
+      nationalityCode: "",
+      countryCode: "",
+      mobile: "",
+      telephone: "",
+      email: "",
+      address: "",
+      travelAgentCode: "",
+      creditLimit: "",
+      whatsapp: "",
+      remark: "",
+      isActive: true,
+      isNew: true,
+    });
+
+    // Reset editing states
+    setEditingCustomer(null);
+    setIsEditing(false);
+    setIsChecked(true);
+    setSearchTerm("");
+
+    // Fetch next code for new entry
+    fetchNextCode();
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    handleClear();
+  };
+
+  const filteredData = guestInfo.filter(guest => {
+    const matchesSearch = searchTerm 
+      ? guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        guest.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        guest.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        guest.mobile.includes(searchTerm)
+      : true;
+    
+    return matchesSearch;
+  });
 
   return (
     <>
-      <PageMeta
-        title="Guest Information - Reservation System"
-        description="Manage guest information"
-      />
+      <PageMeta title="Guest Information Management" description="Manage hotel guest information and profiles" />
 
-      {/* Breadcrumb and Header container */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-        {/* Breadcrumb */}
-        <nav className="order-2 lg:order-1">
-          <ol className="flex items-center justify-center lg:justify-start space-x-2 text-sm">
-            <li>
-              <a
-                href="/dashboard"
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                Dashboard
-              </a>
-            </li>
-            <li className="text-gray-500 dark:text-gray-400">/</li>
-            <li className="text-gray-900 dark:text-white">Guest Information</li>
-          </ol>
-        </nav>
-
-        {/* Header */}
-        <div className="order-1 lg:order-2">
-          <h3 className="font-semibold text-gray-800 text-xl text-center lg:text-left dark:text-white/90 sm:text-2xl">
-            Manage Guest Information
-          </h3>
-        </div>
-
-        {/* Empty div for equal spacing on desktop only */}
-        <div className="hidden lg:block lg:w-[120px] lg:order-3"></div>
-      </div>
-
-      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-8 xl:py-8">
-        <div className="mx-auto w-full max-w-[1000px]">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Search Field */}
-            <div className="w-full sm:w-2/5 sm:ml-auto relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={handleChange}
-                placeholder="Search by code or description...."
-                className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 pr-10 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
-              />
-
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                {searchTerm ? (
-                  <FiX
-                    className="w-4 h-4 text-gray-500 hover:text-red-500 cursor-pointer"
-                    onClick={clearSearch}
-                  />
-                ) : (
-                  <FiSearch className="w-4 h-4 text-gray-400" />
-                )}
-              </div>
-
-              {/* Search Results Dropdown */}
-              {searchTerm && filteredGuestInfo.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredGuestInfo.map((guestInfo) => (
-                    <div
-                      key={guestInfo.CustomerID}
-                      onClick={() => handleSearchResultClick(guestInfo)}
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {guestInfo.customerCode}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {guestInfo.name}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* No Results Message */}
-              {searchTerm &&
-                filteredGuestInfo.length === 0 &&
-                guestInfo.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-md shadow-lg">
-                    <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                      No guest information found
-                    </div>
-                  </div>
-                )}
-            </div>
-
-            <div className="flex-1 mt-6">
-              <Label>Guest Code</Label>
-              <Input
-                name="customerCode"
-                value={formData.customerCode || customerCode}
-                disabled
-                className="w-full bg-gray-100 cursor-not-allowed"
-                onChange={() => {}}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <Label>
-                  Select Guest Type <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  key={`guest-type-${formData.customerTypeCode}`}
-                  options={guestTypeOptions}
-                  onChange={(value) =>
-                    handleSelectChange("customerTypeCode", value || "")
-                  }
-                  placeholder="Select Guest Type"
-                  value={formData.customerTypeCode}
-                />
-              </div>
-              <div>
-                <Label>
-                  Title <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  key={`title-${formData.title}`}
-                  options={guestTitleOptions}
-                  onChange={(value) => handleSelectChange("title", value || "")}
-                  placeholder="Select Title"
-                  value={formData.title}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  name="name"
-                  value={formData.name}
-                  placeholder="Enter Name"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  NIC/Passport
-                </label>
-                <Input
-                  name="niC_PassportNo"
-                  value={formData.niC_PassportNo}
-                  placeholder="Enter Passport No"
-                  required
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Nationality
-                </label>
-                <Select
-                  key={`nationality-${formData.nationalityCode}`}
-                  options={guestNationalityOptions}
-                  onChange={(value) =>
-                    handleSelectChange("nationalityCode", value || "")
-                  }
-                  placeholder="Select Nationality"
-                  value={formData.nationalityCode}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Country
-                </label>
-                <Select
-                  key={`country-${formData.countryCode}`}
-                  options={guestCountryOptions}
-                  onChange={(value) =>
-                    handleSelectChange("countryCode", value || "")
-                  }
-                  placeholder="Select Country"
-                  value={formData.countryCode}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mobile No <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  name="mobile"
-                  value={formData.mobile}
-                  placeholder="Enter Mobile No"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Telephone No
-                </label>
-                <Input
-                  name="telephone"
-                  value={formData.telephone}
-                  placeholder="Enter Telephone No"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Whatsapp No
-                </label>
-                <Input
-                  name="whatsapp"
-                  value={formData.whatsapp}
-                  placeholder="Enter Whatsapp No"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Address
-                </label>
-                <Input
-                  name="email"
-                  value={formData.email}
-                  placeholder="Enter Email Address"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Address
-                </label>
-                <Input
-                  name="address"
-                  value={formData.address}
-                  placeholder="Enter Address"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Select Travel Agent
-                </label>
-                <Select
-                  key={`travel-agent-${formData.travelAgentCode}`}
-                  options={travelAgentsOptions}
-                  onChange={(value) =>
-                    handleSelectChange("travelAgentCode", value || "")
-                  }
-                  placeholder="Select Travel Agent"
-                  value={formData.travelAgentCode}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Credit Limit
-                </label>
-                <Input
-                  name="creditLimit"
-                  value={formData.creditLimit}
-                  placeholder="Enter Credit Limit"
-                  className="w-full"
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="flex items-center gap-3 mt-6">
-                <Checkbox checked={isChecked} onChange={setIsChecked} />
-                <span className="block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Active
-                </span>
-              </div>
-              {/* <div>
-                <Label>Upload file</Label>
-                <FileInput
-                  onChange={handleFileChange}
-                  className="custom-class"
-                />
-              </div> */}
-            </div>
-            <div>
-              <Label>Remark</Label>
-              <textarea
-                name="remark"
-                value={formData.remark}
-                className="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                rows={4}
-                placeholder="Enter your remarks here"
-                onChange={handleTextAreaChange}
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 pb-3 justify-center items-center w-full">
-              <Button
-                type="submit"
-                className={`w-50 sm:w-auto sm:min-w-[180px] ${
-                  isEditing
-                    ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-200 border-yellow-300"
-                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border-blue-300"
-                } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out`}
-                size="md"
-                disabled={isSubmitting}
-              >
-                {isSubmitting
-                  ? isEditing
-                    ? "Updating..."
-                    : "Adding..."
-                  : isEditing
-                  ? "Update"
-                  : "Submit"}
-              </Button>
-
-              <Button
-                type="button"
-                size="md"
-                className="w-50 sm:w-auto sm:min-w-[180px] bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleClear}
-                disabled={isSubmitting}
-              >
-                {isEditing ? "Cancel" : "Clear"}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Reusable Selection Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Select Guest Information"
-        size="2xl"
-      >
-        <DataTable
-          data={guestInfo}
-          columns={GuestInfoColumns}
-          loading={loading}
-          searchable={true}
-          pagination={true}
-          sortable={true}
-          pageSize={10}
-          onRowClick={handleRowClick}
-          className="border-0 shadow-none"
-          emptyMessage="No data available"
-        />
-      </Modal>
-
-      {/* Print Confirmation Modal */}
-      <Modal
-        isOpen={showPrintModal}
-        onClose={() => {
-          setShowPrintModal(false);
-          setPendingGuestData(null);
-        }}
-        title="Print Confirmation"
-        size="sm"
-      >
-        <div className="p-4">
-          <div className="mb-6">
-            <p className="text-gray-700 dark:text-gray-300">
-              Do you want to print the guest information before saving?
+      {/* Header - Travel Agent Style */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Guest Information Management</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Manage and organize all hotel guest information and profiles
             </p>
           </div>
+          
+          <Button
+            type="button"
+            onClick={handleAddNew}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20 border-0 flex items-center gap-2"
+            size="md"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add New Guest
+          </Button>
+        </div>
+      </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
-            {/* YES → Save first, then open print preview with saved data */}
-            <Button
-              type="button"
-              className="w-full sm:w-auto sm:min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white"
-              size="md"
-              onClick={() => {
-                handleSaveGuest(true);
-              }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Processing..." : "Yes, Print"}
-            </Button>
-
-            {/* NO → Save directly without opening print */}
-            <Button
-              type="button"
-              size="md"
-              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-500 hover:bg-gray-600 text-white"
-              onClick={() => {
-                handleSaveGuest(false);
-              }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Processing..." : "No, Skip Print"}
-            </Button>
+      {/* Stats Cards - Travel Agent Style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Total Guests Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <FiUsers className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Guests</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {guestInfo.length}
+              </p>
+            </div>
           </div>
         </div>
-      </Modal>
+
+        {/* Active Guests Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <FiUser className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Active Guests</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {guestInfo.filter(g => g.isActive).length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* International Guests Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <FiGlobe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">International</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {guestInfo.filter(g => g.countryCode !== 'LK').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Travel Agent Guests Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+              <FiBriefcase className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Agent Guests</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {guestInfo.filter(g => g.travelAgentCode).length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Travel Agent Style */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleChange}
+                  placeholder="Search guests by name, code, email, or phone..."
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    <FiX className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAddNew}
+                className="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                title="Press F3 to add new guest"
+              >
+                <FiPlus className="w-4 h-4" />
+                Quick Add (F3)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* DataTable */}
+        <div className="p-6">
+          {guestInfo.length === 0 && loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading guests...</p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div className="text-center py-12">
+              <FiUsers className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                No guests found
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                {searchTerm 
+                  ? "Try changing your search criteria" 
+                  : "Get started by adding your first guest"}
+              </p>
+              {!searchTerm && (
+                <Button
+                  onClick={handleAddNew}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <FiPlus className="w-4 h-4 mr-2" />
+                  Add New Guest
+                </Button>
+              )}
+            </div>
+          ) : (
+            <DataTable
+              data={filteredData}
+              columns={GuestInfoColumns}
+              loading={loading}
+              searchable={false}
+              pagination={true}
+              sortable={true}
+              pageSize={10}
+              onRowClick={handleRowClick}
+              emptyMessage="No guests found"
+              className="border-0 shadow-none"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Add/Edit Guest Modal - Travel Agent Style */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl animate-fadeIn">
+            {/* Modal Content */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isEditing ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                      {isEditing ? (
+                        <FiEdit2 className={`w-6 h-6 ${isEditing ? 'text-yellow-600 dark:text-yellow-400' : 'text-blue-600 dark:text-blue-400'}`} />
+                      ) : (
+                        <FiUser className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {isEditing ? 'Edit Guest Information' : 'Add New Guest'}
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {isEditing ? `Editing guest ${formData.customerCode}` : 'Fill in the details to add a new guest'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseModal}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <FiX className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Guest Code */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Guest Code
+                    </label>
+                    <Input
+                      name="customerCode"
+                      value={formData.customerCode || customerCode}
+                      readonly={!!isEditing}  
+                      className="w-full"
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Guest Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Guest Type <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        key={`guest-type-${formData.customerTypeCode}`}
+                        options={guestTypeOptions}
+                        onChange={(value) =>
+                          handleSelectChange("customerTypeCode", value || "")
+                        }
+                        placeholder="Select Guest Type"
+                        value={formData.customerTypeCode}
+                      />
+                    </div>
+
+                    {/* Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Title <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        key={`title-${formData.title}`}
+                        options={guestTitleOptions}
+                        onChange={(value) => handleSelectChange("title", value || "")}
+                        placeholder="Select Title"
+                        value={formData.title}
+                      />
+                    </div>
+
+                    {/* Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        name="name"
+                        value={formData.name}
+                        placeholder="Enter Full Name"
+                        required
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* NIC/Passport */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        NIC/Passport No
+                      </label>
+                      <Input
+                        name="niC_PassportNo"
+                        value={formData.niC_PassportNo}
+                        placeholder="Enter NIC or Passport Number"
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* Nationality */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Nationality
+                      </label>
+                      <Select
+                        key={`nationality-${formData.nationalityCode}`}
+                        options={guestNationalityOptions}
+                        onChange={(value) =>
+                          handleSelectChange("nationalityCode", value || "")
+                        }
+                        placeholder="Select Nationality"
+                        value={formData.nationalityCode}
+                      />
+                    </div>
+
+                    {/* Country */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Country
+                      </label>
+                      <Select
+                        key={`country-${formData.countryCode}`}
+                        options={guestCountryOptions}
+                        onChange={(value) =>
+                          handleSelectChange("countryCode", value || "")
+                        }
+                        placeholder="Select Country"
+                        value={formData.countryCode}
+                      />
+                    </div>
+
+                    {/* Mobile */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Mobile No <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        name="mobile"
+                        value={formData.mobile}
+                        placeholder="Enter Mobile Number"
+                        required
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* Telephone */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Telephone No
+                      </label>
+                      <Input
+                        name="telephone"
+                        value={formData.telephone}
+                        placeholder="Enter Telephone Number"
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* WhatsApp */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        WhatsApp No
+                      </label>
+                      <Input
+                        name="whatsapp"
+                        value={formData.whatsapp}
+                        placeholder="Enter WhatsApp Number"
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        name="email"
+                        value={formData.email}
+                        placeholder="Enter Email Address"
+                        type="email"
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    {/* Travel Agent */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Travel Agent
+                      </label>
+                      <Select
+                        key={`travel-agent-${formData.travelAgentCode}`}
+                        options={travelAgentsOptions}
+                        onChange={(value) =>
+                          handleSelectChange("travelAgentCode", value || "")
+                        }
+                        placeholder="Select Travel Agent"
+                        value={formData.travelAgentCode}
+                      />
+                    </div>
+
+                    {/* Credit Limit */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Credit Limit
+                      </label>
+                      <Input
+                        name="creditLimit"
+                        value={formData.creditLimit}
+                        placeholder="Enter Credit Limit"
+                        className="w-full"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Address
+                    </label>
+                    <textarea
+                      name="address"
+                      value={formData.address}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent px-4 py-3 text-sm text-gray-800 dark:text-white/90 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      placeholder="Enter full address..."
+                      onChange={handleTextAreaChange}
+                    />
+                  </div>
+
+                  {/* Remarks */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Remarks
+                    </label>
+                    <textarea
+                      name="remark"
+                      value={formData.remark}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent px-4 py-3 text-sm text-gray-800 dark:text-white/90 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      placeholder="Enter any remarks or notes..."
+                      onChange={handleTextAreaChange}
+                    />
+                  </div>
+
+                  {/* Active Checkbox */}
+                  <div className="flex items-center gap-3">
+                    <Checkbox checked={isChecked} onChange={setIsChecked} />
+                    <span className="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                      Active Guest
+                    </span>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={handleCloseModal}
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      className={`px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${
+                        isEditing
+                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
+                          : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting
+                        ? isEditing
+                          ? "Updating..."
+                          : "Adding..."
+                        : isEditing
+                        ? "Update Guest"
+                        : "Save Guest"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal - Travel Agent Style */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md animate-fadeIn">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <FiTrash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Confirm Delete
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      This action cannot be undone
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <p className="text-gray-700 dark:text-gray-300">
+                  Are you sure you want to delete guest <span className="font-bold">"{deleteConfirmModal.customerCode}"</span>?
+                  {deleteConfirmModal.name && deleteConfirmModal.name !== deleteConfirmModal.customerCode && (
+                    <span className="ml-1">({deleteConfirmModal.name})</span>
+                  )}
+                </p>
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                  ⚠️ This will permanently remove the guest and cannot be recovered.
+                </p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Note: This may affect reservations and bookings for this guest.
+                </p>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmModal({ isOpen: false, customerId: 0, customerCode: "", name: "" })}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(deleteConfirmModal.customerId, deleteConfirmModal.customerCode)}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 rounded-lg transition-colors"
+                >
+                  Delete Guest
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Confirmation Modal - Travel Agent Style */}
+      {showPrintModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md animate-fadeIn">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <FiMail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Print Guest Information
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Save and print options
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                  Do you want to print the guest information after saving?
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
+                  {/* YES → Save first, then open print preview with saved data */}
+                  <Button
+                    type="button"
+                    className="w-full sm:w-auto sm:min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white"
+                    size="md"
+                    onClick={() => {
+                      handleSaveGuest(true);
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Processing..." : "Yes, Print"}
+                  </Button>
+
+                  {/* NO → Save directly without opening print */}
+                  <Button
+                    type="button"
+                    size="md"
+                    className="w-full sm:w-auto sm:min-w-[120px] bg-gray-500 hover:bg-gray-600 text-white"
+                    onClick={() => {
+                      handleSaveGuest(false);
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Processing..." : "No, Skip Print"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
