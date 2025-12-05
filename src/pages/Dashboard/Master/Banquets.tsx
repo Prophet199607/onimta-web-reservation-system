@@ -708,21 +708,25 @@ export default function Banquets() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleRowClick(row)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+             className="p-2 border-2 border-blue-200 hover:border-blue-400 dark:border-blue-800 dark:hover:border-blue-600 bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg transition-all duration-200 group shadow-sm hover:shadow-md"
             title="Edit"
           >
-            <FiEdit2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            <FiEdit2 className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:rotate-12 transition-transform" />
           </button>
+         
           <button
-            onClick={() => setDeleteConfirmModal({
+            onClick={(event) => {
+              event.stopPropagation
+              setDeleteConfirmModal({
               isOpen: true,
               roomCode: row.roomCode,
               description: row.description
-            })}
-            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            });
+            }}
+            className="p-2 border-2 border-red-200 hover:border-red-400 dark:border-red-800 dark:hover:border-red-600 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-all duration-200 group shadow-sm hover:shadow-md"
             title="Delete"
           >
-            <FiTrash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <FiTrash2 className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:scale-110 transition-transform" />
           </button>
         </div>
       ),
@@ -1343,7 +1347,13 @@ export default function Banquets() {
                     <button
                       type="button"
                       onClick={handleCloseModal}
-                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                     
+                        className="
+    px-5 py-2.5 text-sm font-medium
+    text-white bg-gray-500 rounded-lg
+    hover:bg-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600
+    transition-colors
+  "
                       disabled={isSubmitting}
                     >
                       Cancel
@@ -1351,7 +1361,12 @@ export default function Banquets() {
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      className="
+    px-5 py-2.5 text-sm font-medium
+    text-white bg-gray-500 rounded-lg
+    hover:bg-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600
+    transition-colors
+  "
                       disabled={isSubmitting}
                     >
                       Clear
@@ -1360,7 +1375,7 @@ export default function Banquets() {
                       type="submit"
                       className={`px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${
                         editingCode
-                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                           : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                       disabled={isSubmitting}
@@ -1424,7 +1439,12 @@ export default function Banquets() {
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmModal({ isOpen: false, roomCode: "", description: "" })}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                   className="
+    px-5 py-2.5 text-sm font-medium
+    text-white bg-gray-500 rounded-lg
+    hover:bg-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600
+    transition-colors
+  "
                 >
                   Cancel
                 </button>

@@ -302,31 +302,36 @@ export default function InOut() {
   };
 
   // Handle status change
-  const handleStatusChange = (value: string) => {
-    const id = Number(value);
-    setSelectedStatus(id);
-    if (id) {
-      fetchReservationsByStatus(id, startDate, endDate);
-    }
-  };
+const handleStatusChange = (value: string) => {
+  const id = Number(value);
+  setSelectedStatus(id);
+  // Don't fetch here - let user set dates first
+};
 
   const handleStartDateChange = (date: string) => {
     setStartDate(date);
 
-    // Use 'date' directly for start, 'endDate' from state
-    if (selectedStatus) {
-      fetchReservationsByStatus(selectedStatus, date, endDate);
-    }
+   
   };
+const handleEndDateChange = (date: string) => {
+  setEndDate(date);
+  // Don't auto-fetch when changing dates
+};
 
-  const handleEndDateChange = (date: string) => {
-    setEndDate(date);
+// Add a new manual fetch function
+const handleFetchData = () => {
+  if (!selectedStatus) {
+    alert("Please select a status first");
+    return;
+  }
+  
+  if (!startDate || !endDate) {
+    alert("Please select both start and end dates");
+    return;
+  }
 
-    // Use 'date' directly for end, 'startDate' from state
-    if (selectedStatus) {
-      fetchReservationsByStatus(selectedStatus, startDate, date);
-    }
-  };
+  fetchReservationsByStatus(selectedStatus, startDate, endDate);
+};
   const filteredReservations = reservations.filter(r =>
   r.reservationNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
   r.customerCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -602,13 +607,13 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
             {/* Action Buttons */}
             <div className="bg-gray-50 p-4 rounded-lg flex flex-col justify-center">
               <div className="space-y-3">
-                <Button
-                  onClick={() => selectedStatus && fetchReservationsByStatus(selectedStatus, startDate, endDate)}
-                  disabled={!selectedStatus || loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {loading ? "Loading..." : "Refresh Data"}
-                </Button>
+               <Button
+  onClick={handleFetchData}
+  disabled={!selectedStatus || !startDate || !endDate || loading}
+  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+>
+  {loading ? "Loading..." : "Load Data"}
+</Button>
                 <Button
                   onClick={handleViewData}
                   disabled={reservations.length === 0}

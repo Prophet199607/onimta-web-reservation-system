@@ -15,73 +15,48 @@ interface StatusOption {
   color: string;
 }
 
-interface Room {
-  roomTypeCode: string;
-  roomCode: string;
+interface CalendarRoom {
+  roomId: number;
+  roomName: string;
   roomSize: string;
-  description: string;
-  isRoom: boolean;
+  calendarDetails: { [key: string]: string };
 }
 
-interface ReservationDto {
-  reservationNo: string;
-  reservationStatus: string;
-  statusId: number;
-  customerCode: string;
-  checkinDateTime: string;
-  checkoutDateTime: string;
-  grossAmount: number;
-    dueAmount: number;
-    paidAmount:number;
-  mobile: string;
-  email: string;
-  customer?: {
-    name: string;
-    title:string;
-  };
-  roomDetails: Array<{
-    roomCode: string;
-    checkinDate: string;
-    checkoutDate: string;
-    amount: number;
-    price: number;
-    noOfDays: number;
-  }>;
-}
-
-interface CalendarReservation {
-  reservationNo: string;
-  customerName: string;
-  customerTitle: string;
-  roomCode: string;
-  checkinDate: Date;
-  checkoutDate: Date;
-  status: string;
-  statusColor: string;
-  amount: number;
-  paidAmount:number;
-  dueAmount:number;
-  mobile: string;
+interface ReservationCalendarDto {
+  roomId: number;
+  roomName: string;
+  roomSize: string;
+  calendarDetails: { [key: string]: string };
 }
 
 export default function Calendar() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const defaultEndDate = new Date(today);
+  defaultEndDate.setDate(today.getDate() + 7);
   
-  const [startDate, setStartDate] = useState<string>(today);
-  const [endDate, setEndDate] = useState<string>(today);
+  const [startDate, setStartDate] = useState<string>(formatDate(today));
+  const [endDate, setEndDate] = useState<string>(formatDate(defaultEndDate));
   const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
+  const [calendarType, setCalendarType] = useState<number>(1); // 0: All, 1: Rooms, 2: Banquet
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [reservations, setReservations] = useState<CalendarReservation[]>([]);
+  const [calendarData, setCalendarData] = useState<ReservationCalendarDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
-    reservation: CalendarReservation | null;
-    date: Date;
-    roomCode: string;
+    reservation: any | null;
+    date: string;
+    dateFormatted: string;
+    roomName: string;
+    roomId: number;
   } | null>(null);
   
-  const hasFetched = useRef(false);
+  // Helper function to format date as YYYY-MM-DD
+  function formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   // Fetch status options
   useEffect(() => {
@@ -115,34 +90,6 @@ export default function Calendar() {
     fetchStatusOptions();
   }, []);
 
-  // Fetch rooms
-  const fetchRooms = async () => {
-    try {
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/Room/getall`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const roomsOnly = Array.isArray(data)
-          ? data.filter((room) => room.isRoom === true)
-          : [];
-        setRooms(roomsOnly);
-      }
-    } catch (error) {
-      console.error("Failed to load rooms:", error);
-      showErrorToast("Failed to load rooms");
-    }
-  };
-
-  useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      fetchRooms();
-    }
-  }, []);
-
   // Helper function to get default colors
   const getDefaultColor = (statusName: string): string => {
     const colorMap: { [key: string]: string } = {
@@ -163,11 +110,11 @@ export default function Calendar() {
     return statusOption?.color || '#10b981';
   };
 
-  // Generate date range
-  const generateDates = (): Date[] => {
+  // Generate date range for columns
+  const generateDateColumns = (): Array<{ date: Date, key: string, display: string }> => {
     if (!startDate || !endDate) return [];
     
-    const dates = [];
+    const columns = [];
     const currentDate = new Date(startDate);
     const end = new Date(endDate);
     
@@ -175,129 +122,112 @@ export default function Calendar() {
     end.setHours(0, 0, 0, 0);
 
     while (currentDate <= end) {
-      dates.push(new Date(currentDate));
+      const dateKey = `${formatDate(currentDate)} ${currentDate.toLocaleDateString('en-US', { weekday: 'long' })}`;
+      columns.push({
+        date: new Date(currentDate),
+        key: dateKey,
+        display: `${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      });
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    return dates;
+    return columns;
   };
 
-  // Handle search
-// Handle search - CORRECTED VERSION
-const handleSearch = async () => {
-  if (!startDate || !endDate) {
-    showErrorToast("Please select both start and end dates");
-    return;
-  }
+  // Handle search using the stored procedure
+  const handleSearch = async () => {
+    if (!startDate || !endDate) {
+      showErrorToast("Please select both start and end dates");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('startDate', `${startDate}T00:00:00`);
+      params.append('endDate', `${endDate}T23:59:59`);
+      params.append('calendarType', calendarType.toString());
+      if (selectedStatus) {
+        params.append('statusId', selectedStatus.toString());
+      }
 
-  try {
-    const url = selectedStatus
-      ? `${API_BASE_URL}/api/RoomReservation/byStatus/${selectedStatus}`
-      : `${API_BASE_URL}/api/RoomReservation/all`;
-
-    const params = new URLSearchParams();
-    params.append('fromDate', startDate);
-    params.append('toDate', endDate);
-
-    const response = await axios.get(`${url}?${params.toString()}`);
-    const data = response.data;
-
-    console.log("🔍 DEBUG - API Response:", data);
-
-    // Transform data to calendar format
-    const calendarData: CalendarReservation[] = [];
-
-    data.forEach((reservation: ReservationDto) => {
-      const customerName = reservation.customer?.name || reservation.customerCode || "Unknown";
-      const customerTitle = reservation.customer?.title || reservation.customerCode || "Unknown";
-      const statusColor = getStatusColor(reservation.reservationStatus);
-
-      
-
-      // Calculate total room amount for this reservation
-      const totalRoomAmount = reservation.roomDetails?.reduce((total, room) => total + (room.amount || 0), 0) || 0;
-      
-      reservation.roomDetails?.forEach((room) => {
-        // Calculate proportional payment amounts per room
-        const roomAmount = room.amount || 0;
-        const roomProportion = totalRoomAmount > 0 ? roomAmount / totalRoomAmount : 0;
-        
-        // Distribute paid/due amounts proportionally across rooms
-        const paidAmount = reservation.paidAmount * roomProportion;
-        const dueAmount = reservation.dueAmount * roomProportion;
-
-        console.log(`🔍 DEBUG - Room ${room.roomCode}:`, {
-          roomAmount,
-          roomProportion: `${(roomProportion * 100).toFixed(2)}%`,
-          paidAmount,
-          dueAmount
-        });
-
-        calendarData.push({
-          reservationNo: reservation.reservationNo,
-          customerName: customerName,
-          customerTitle: customerTitle,
-          roomCode: room.roomCode,
-          checkinDate: new Date(room.checkinDate),
-          checkoutDate: new Date(room.checkoutDate),
-          status: reservation.reservationStatus,
-          statusColor: statusColor,
-          amount: roomAmount,
-          paidAmount: paidAmount,
-          dueAmount: dueAmount,
-          mobile: reservation.mobile || "N/A",
-        });
-      });
-    });
-
-    setReservations(calendarData);
-    showSuccessToast(`Found ${calendarData.length} reservations`);
-  } catch (err: any) {
-    console.error("Search error:", err);
-    showErrorToast(err.response?.data?.message || "Failed to load reservations");
-    setReservations([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Get reservation for specific cell
-  const getReservationForCell = (date: Date, roomCode: string): CalendarReservation | null => {
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-
-    return reservations.find((reservation) => {
-      const checkin = new Date(reservation.checkinDate);
-      const checkout = new Date(reservation.checkoutDate);
-      
-      checkin.setHours(0, 0, 0, 0);
-      checkout.setHours(0, 0, 0, 0);
-
-      return (
-        reservation.roomCode === roomCode &&
-        checkDate >= checkin &&
-        checkDate <= checkout
+      const response = await axios.get(
+        `${API_BASE_URL}/api/ReservationCalendar/calendar?${params.toString()}`
       );
-    }) || null;
+      
+      const data: ReservationCalendarDto[] = response.data;
+      console.log("🔍 DEBUG - Calendar Data:", data);
+      
+      setCalendarData(data);
+      showSuccessToast(`Loaded ${data.length} rooms with reservations`);
+    } catch (err: any) {
+      console.error("Search error:", err);
+      showErrorToast(err.response?.data?.message || "Failed to load calendar data");
+      setCalendarData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Parse reservation detail
+  const parseReservationDetail = (detail: string) => {
+    if (!detail) return null;
+    
+    try {
+      // Format: "RES001 : Mr John Doe | Confirmed"
+      const parts = detail.split(' | ');
+      const leftPart = parts[0];
+      const status = parts[1] || 'Unknown';
+      
+      const reservationMatch = leftPart.match(/^(.*?) : (.*)$/);
+      if (reservationMatch) {
+        return {
+          reservationNo: reservationMatch[1].trim(),
+          customerName: reservationMatch[2].trim(),
+          status: status.trim(),
+          statusColor: getStatusColor(status.trim())
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error("Error parsing reservation detail:", err);
+      return null;
+    }
   };
 
   // Handle cell click
-  const handleCellClick = (date: Date, roomCode: string) => {
-    const reservation = getReservationForCell(date, roomCode);
-    setSelectedCell({ reservation, date, roomCode });
+  const handleCellClick = (room: ReservationCalendarDto, dateKey: string, date: Date) => {
+    const reservationDetail = room.calendarDetails[dateKey];
+    const reservation = parseReservationDetail(reservationDetail);
+    
+    setSelectedCell({
+      reservation,
+      date: formatDate(date),
+      dateFormatted: date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      roomName: room.roomName,
+      roomId: room.roomId
+    });
   };
 
   const handleClear = () => {
-    setStartDate(today);
-    setEndDate(today);
+    const today = new Date();
+    const defaultEnd = new Date(today);
+    defaultEnd.setDate(today.getDate() + 7);
+    
+    setStartDate(formatDate(today));
+    setEndDate(formatDate(defaultEnd));
     setSelectedStatus(null);
-    setReservations([]);
+    setCalendarType(1);
+    setCalendarData([]);
     showSuccessToast("Filters cleared");
   };
 
-  const dates = generateDates();
+  const dateColumns = generateDateColumns();
+
+  // Auto-search on component mount
+  useEffect(() => {
+    handleSearch();
+  }, []);
 
   return (
     <>
@@ -345,7 +275,24 @@ const handleSearch = async () => {
         <div className="p-6">
           {/* Filters Card */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end">
+              {/* Calendar Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Calendar Type
+                </label>
+                <Select
+                  options={[
+                    { value: "0", label: "All" },
+                    { value: "1", label: "Rooms" },
+                    { value: "2", label: "Banquet" },
+                  ]}
+                  value={calendarType.toString()}
+                  placeholder="Select type"
+                  onChange={(value) => setCalendarType(parseInt(value))}
+                />
+              </div>
+
               {/* Status Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -392,7 +339,7 @@ const handleSearch = async () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-3 ">
+              <div className="flex space-x-3">
                 <Button
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={handleSearch}
@@ -401,14 +348,14 @@ const handleSearch = async () => {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Searching...
+                      Loading...
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      Search
+                      Refresh
                     </>
                   )}
                 </Button>
@@ -447,15 +394,15 @@ const handleSearch = async () => {
                 Reservation Calendar
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {dates.length > 0
-                  ? `Showing ${dates.length} days | ${reservations.length} reservations`
-                  : "Select a date range to view reservations"
+                {dateColumns.length > 0
+                  ? `Showing ${dateColumns.length} days | ${calendarData.length} rooms`
+                  : "Select a date range to view calendar"
                 }
               </p>
             </div>
 
             <div className="p-4 overflow-auto">
-              {dates.length === 0 ? (
+              {dateColumns.length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -463,70 +410,71 @@ const handleSearch = async () => {
                   <p className="text-gray-600 dark:text-gray-400">Select dates to view calendar</p>
                 </div>
               ) : (
-                <div style={{ minWidth: `${150 + 80 + dates.length * 100}px` }}>
-                  <div className="grid" style={{ gridTemplateColumns: `150px 80px repeat(${dates.length}, 100px)` }}>
+                <div style={{ minWidth: `${200 + 100 + dateColumns.length * 120}px` }}>
+                  <div className="grid" style={{ gridTemplateColumns: `200px 100px repeat(${dateColumns.length}, 120px)` }}>
                     {/* Header Row */}
-                    <div className="sticky left-0 z-20 bg-gray-100 dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 h-20 flex items-center">
+                    <div className="sticky left-0 z-20 bg-gray-100 dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 h-16 flex items-center">
                       <span className="text-gray-800 dark:text-gray-200 font-semibold text-sm">Room Name</span>
                     </div>
-                    <div className="sticky left-[150px] z-20 bg-gray-100 dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 h-20 flex items-center justify-center">
+                    <div className="sticky left-[200px] z-20 bg-gray-100 dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 h-16 flex items-center justify-center">
                       <span className="text-gray-800 dark:text-gray-200 font-semibold text-sm">Size</span>
                     </div>
 
                     {/* Date Headers */}
-                    {dates.map((date, index) => (
+                    {dateColumns.map((col, index) => (
                       <div
                         key={index}
-                        className="bg-gray-100 dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 h-20 flex flex-col justify-center items-center"
+                        className="bg-gray-100 dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 h-16 flex flex-col justify-center items-center"
                       >
                         <div className="text-gray-800 dark:text-gray-200 text-sm font-semibold">
-                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {col.display}
                         </div>
                         <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                          {col.date.toLocaleDateString("en-US", { weekday: "short" })}
                         </div>
                       </div>
                     ))}
 
                     {/* Room Rows */}
-                    {rooms.map((room, roomIndex) => (
+                    {calendarData.map((room, roomIndex) => (
                       <React.Fragment key={roomIndex}>
-                        <div className="sticky left-0 z-10 bg-blue-50 dark:bg-blue-900/20 p-3 border border-gray-300 dark:border-gray-600 h-24 flex items-center">
+                        <div className="sticky left-0 z-10 bg-blue-50 dark:bg-blue-900/20 p-3 border border-gray-300 dark:border-gray-600 h-20 flex items-center">
                           <div className="flex flex-col">
                             <span className="text-gray-900 dark:text-gray-100 text-sm font-semibold">
-                              {room.roomCode}
+                              {room.roomName}
                             </span>
                             <span className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                              {room.description}
+                              ID: {room.roomId}
                             </span>
                           </div>
                         </div>
 
-                        <div className="sticky left-[150px] z-10 bg-purple-50 dark:bg-purple-900/20 p-2 border border-gray-300 dark:border-gray-600 h-24 flex items-center justify-center">
+                        <div className="sticky left-[200px] z-10 bg-purple-50 dark:bg-purple-900/20 p-2 border border-gray-300 dark:border-gray-600 h-20 flex items-center justify-center">
                           <span className="text-gray-900 dark:text-gray-100 text-sm font-semibold">
                             {room.roomSize}
                           </span>
                         </div>
 
-                        {dates.map((date, dateIndex) => {
-                          const reservation = getReservationForCell(date, room.roomCode);
-                          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        {dateColumns.map((col, dateIndex) => {
+                          const reservationDetail = room.calendarDetails[col.key];
+                          const reservation = parseReservationDetail(reservationDetail);
+                          const isWeekend = col.date.getDay() === 0 || col.date.getDay() === 6;
 
                           return (
                             <div
                               key={dateIndex}
-                              className={`p-1 border border-gray-300 dark:border-gray-600 h-24 cursor-pointer transition-all duration-200 ${
+                              className={`p-1 border border-gray-300 dark:border-gray-600 h-20 cursor-pointer transition-all duration-200 ${
                                 reservation
                                   ? "hover:opacity-80"
                                   : isWeekend
                                   ? "bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                   : "bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                               }`}
-                              onClick={() => handleCellClick(date, room.roomCode)}
+                              onClick={() => handleCellClick(room, col.key, col.date)}
                               title={
                                 reservation
-                                  ? `${reservation.customerName}\nStatus: ${reservation.status}\nRoom: ${reservation.roomCode}`
-                                  : `Available - ${room.roomCode}\n${date.toLocaleDateString()}`
+                                  ? `${reservation.customerName}\nStatus: ${reservation.status}\nReservation: ${reservation.reservationNo}`
+                                  : `Available - ${room.roomName}\n${col.date.toLocaleDateString()}`
                               }
                             >
                               {reservation ? (
@@ -542,6 +490,9 @@ const handleSearch = async () => {
                                 >
                                   <div className="truncate w-full font-semibold mb-1">
                                     {reservation.customerName}
+                                  </div>
+                                  <div className="text-[10px] opacity-90 truncate w-full">
+                                    {reservation.reservationNo}
                                   </div>
                                   <div className="text-[10px] opacity-90 truncate w-full">
                                     {reservation.status}
@@ -565,278 +516,210 @@ const handleSearch = async () => {
         </div>
       </div>
 
-     
-
-{selectedCell && (
-  <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-    <div className="relative w-full max-w-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-xl border border-gray-200/50 bg-white shadow-2xl dark:border-gray-700/50 dark:bg-gray-800 max-h-[90vh] overflow-hidden flex flex-col">
-      
-      {/* Modal Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-lg transition-all ${
-            selectedCell.reservation 
-              ? "bg-gradient-to-br from-blue-500 to-blue-600" 
-              : "bg-gradient-to-br from-green-500 to-green-600"
-          }`}>
-            {selectedCell.reservation ? (
-              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            ) : (
-              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              {selectedCell.reservation ? "Reservation Details" : "Available Slot"}
-            </h3>
-            {selectedCell.reservation && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                {selectedCell.reservation.reservationNo}
-              </p>
-            )}
-          </div>
-        </div>
-        <button
-          onClick={() => setSelectedCell(null)}
-          className="rounded-lg p-2 text-gray-400 transition-all hover:bg-white/80 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 hover:rotate-90 duration-300"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Modal Body - Scrollable */}
-      <div className="p-6 overflow-y-auto flex-1">
-        {selectedCell.reservation ? (
-          <div className="space-y-5">
-            {/* Status Badge */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <div 
-                  className="h-2.5 w-2.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: selectedCell.reservation.statusColor }}
-                ></div>
-                <span 
-                  className="text-sm font-semibold px-3 py-1 rounded-full"
-                  style={{ 
-                    color: selectedCell.reservation.statusColor,
-                    backgroundColor: `${selectedCell.reservation.statusColor}15`
-                  }}
-                >
-                  {selectedCell.reservation.status}
-                </span>
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {selectedCell.date.toLocaleDateString()}
-              </span>
-            </div>
-
-            {/* Customer Information */}
-            <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:border-blue-800/30 dark:from-blue-900/20 dark:to-indigo-900/20">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Customer Information</h4>
-              </div>
-              <div className="space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Name</span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {selectedCell.reservation.customerTitle + " " + selectedCell.reservation.customerName}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Mobile</span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+      {/* Modal for Details */}
+      {selectedCell && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl animate-in slide-in-from-bottom-4 duration-300 rounded-xl border border-gray-200/50 bg-white shadow-2xl dark:border-gray-700/50 dark:bg-gray-800 max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-lg transition-all ${
+                  selectedCell.reservation 
+                    ? "bg-gradient-to-br from-blue-500 to-blue-600" 
+                    : "bg-gradient-to-br from-green-500 to-green-600"
+                }`}>
+                  {selectedCell.reservation ? (
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {selectedCell.reservation.mobile}
-                  </span>
+                  ) : (
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {selectedCell.reservation ? "Reservation Details" : "Available Slot"}
+                  </h3>
+                  {selectedCell.reservation && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                      {selectedCell.reservation.reservationNo}
+                    </p>
+                  )}
                 </div>
               </div>
+              <button
+                onClick={() => setSelectedCell(null)}
+                className="rounded-lg p-2 text-gray-400 transition-all hover:bg-white/80 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 hover:rotate-90 duration-300"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            {/* Room & Dates */}
-            <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4 dark:border-purple-800/30 dark:from-purple-900/20 dark:to-pink-900/20">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Room & Dates</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
-                  <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Room</span>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {selectedCell.reservation.roomCode}
-                  </p>
-                </div>
-                <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
-                  <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Nights</span>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {Math.ceil((selectedCell.reservation.checkoutDate.getTime() - selectedCell.reservation.checkinDate.getTime()) / (1000 * 60 * 60 * 24))} Nights
-                  </p>
-                </div>
-                <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
-                  <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Check-in</span>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {selectedCell.reservation.checkinDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
-                  <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Check-out</span>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {selectedCell.reservation.checkoutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Modal Body - Scrollable */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {selectedCell.reservation ? (
+                <div className="space-y-5">
+                  {/* Status Badge */}
+                  <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-2.5 w-2.5 rounded-full animate-pulse"
+                        style={{ backgroundColor: selectedCell.reservation.statusColor }}
+                      ></div>
+                      <span 
+                        className="text-sm font-semibold px-3 py-1 rounded-full"
+                        style={{ 
+                          color: selectedCell.reservation.statusColor,
+                          backgroundColor: `${selectedCell.reservation.statusColor}15`
+                        }}
+                      >
+                        {selectedCell.reservation.status}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {selectedCell.dateFormatted}
+                    </span>
+                  </div>
 
-            {/* Financial Summary */}
-            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 dark:border-emerald-800/30 dark:from-emerald-900/20 dark:to-teal-900/20">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Financial Summary</h4>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Room Amount</span>
-                  <span className="text-base font-bold text-gray-900 dark:text-white">
-                    LKR {selectedCell.reservation.amount.toLocaleString()}
-                  </span>
+                  {/* Customer Information */}
+                  <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:border-blue-800/30 dark:from-blue-900/20 dark:to-indigo-900/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Customer Information</h4>
+                    </div>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Customer</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {selectedCell.reservation.customerName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Reservation No</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                          {selectedCell.reservation.reservationNo}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Room Information */}
+                  <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4 dark:border-purple-800/30 dark:from-purple-900/20 dark:to-pink-900/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Room Information</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Room</span>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">
+                          {selectedCell.roomName}
+                        </p>
+                      </div>
+                      <div className="bg-white/60 dark:bg-gray-800/40 rounded-lg p-3">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Room ID</span>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {selectedCell.roomId}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <Button
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => {
+                        setSelectedCell(null);
+                        navigate(`/reservation/${selectedCell.reservation.reservationNo}`);
+                      }}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View Details
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Paid Amount</span>
-                  <span className="text-base font-bold text-green-600 dark:text-green-400">
-                    LKR {selectedCell.reservation.paidAmount.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300 dark:border-gray-600">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Due Amount</span>
-                  <span className={`text-lg font-bold ${
-                    selectedCell.reservation.dueAmount > 0 
-                      ? "text-red-600 dark:text-red-400" 
-                      : "text-green-600 dark:text-green-400"
-                  }`}>
-                    LKR {selectedCell.reservation.dueAmount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              {selectedCell.reservation.dueAmount > 0 && (
-                <div className="mt-3 p-2.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-800 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <p className="text-xs text-orange-800 dark:text-orange-200 font-medium">
-                    Balance payment required at check-in
-                  </p>
+              ) : (
+                /* Available Slot Content */
+                <div className="text-center py-6">
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500 shadow-lg animate-pulse">
+                    <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Room Available!</h4>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">This room is ready for your reservation</p>
+
+                  <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 p-5 dark:border-gray-600 dark:from-gray-700/50 dark:to-gray-700/30">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                          </svg>
+                          Room
+                        </span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">{selectedCell.roomName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Date
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {selectedCell.dateFormatted}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Button
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
+                      onClick={() => {
+                        setSelectedCell(null);
+                        navigate(`/room-reservation?room=${selectedCell.roomId}&date=${selectedCell.date}`);
+                      }}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Book This Room
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        ) : (
-          /* Available Slot Content */
-          <div className="text-center py-6">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500 shadow-lg animate-pulse">
-              <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Room Available!</h4>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">This room is ready for your reservation</p>
 
-            <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 p-5 dark:border-gray-600 dark:from-gray-700/50 dark:to-gray-700/30">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    Room
-                  </span>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">{selectedCell.roomCode}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Date
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {selectedCell.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Day
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {selectedCell.date.toLocaleDateString('en-US', { weekday: 'long' })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6">
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
               <Button
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
-                onClick={() => {
-                  setSelectedCell(null);
-                  navigate(`/room-reservation?room=${selectedCell.roomCode}&date=${selectedCell.date.toISOString()}`);
-                }}
+                className="bg-gray-500 hover:bg-gray-600 text-white transition-all"
+                onClick={() => setSelectedCell(null)}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Book This Room
+                Close
               </Button>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Modal Footer */}
-      <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
-        {selectedCell.reservation ? (
-          <>
-           
-            <Button
-              className="bg-gray-500 hover:bg-gray-600 text-white transition-all"
-              onClick={() => setSelectedCell(null)}
-            >
-              Close
-            </Button>
-          </>
-        ) : (
-          <Button
-            className="bg-gray-500 hover:bg-gray-600 text-white transition-all"
-            onClick={() => setSelectedCell(null)}
-          >
-            Close
-          </Button>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
+        </div>
+      )}
     </>
   );
 }
- 
