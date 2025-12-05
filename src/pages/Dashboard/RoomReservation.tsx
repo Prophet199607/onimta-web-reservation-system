@@ -1523,10 +1523,25 @@ if (formData.statusId === 6 || formData.reservationStatus === "Finalized") {
       setCheckOutTime(checkoutDate.toTimeString().slice(0, 5));
     }
 
-    if (reservation.reservationDate) {
-      const resDate = new Date(reservation.reservationDate);
-      setReservationDate(resDate.toISOString().split('T')[0]);
-    }
+  // In the useEffect that loads reservation data:
+// Fix the entire date loading section in your useEffect:
+if (reservation.reservationDate) {
+  const resDateStr = reservation.reservationDate;
+  console.log("🔍 DEBUG - Raw reservation date from DB:", resDateStr);
+  
+  // Extract date part safely
+  let dateToSet = today; // default fallback
+  
+  if (resDateStr.includes('T')) {
+    dateToSet = resDateStr.split('T')[0];
+  } else if (resDateStr) {
+    // If it's already just a date string
+    dateToSet = resDateStr;
+  }
+  
+  console.log("🔍 DEBUG - Setting reservation date to:", dateToSet);
+  setReservationDate(dateToSet);
+}
 
 
     // Populate room details
