@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import DatePicker from "../../components/form/date-picker";
 import Button from "../../components/ui/button/Button";
 import { showSuccessToast, showErrorToast } from "../../components/alert/ToastAlert";
+import API_BASE_URL from "../../config/api";
 
 // Define interfaces
 interface InvoiceDto {
@@ -16,6 +17,12 @@ interface InvoiceDto {
   dueAmount: number;
   status: string;
   createdBy: string;
+  mobile?: string;
+  email?: string;
+  checkinDate?: string;
+  checkoutDate?: string;
+  roomNumber?: string;
+  roomType?: string;
 }
 
 export default function Invoices() {
@@ -26,11 +33,13 @@ export default function Invoices() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDto | null>(null);
 
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      let url = `https://localhost:9307/api/RoomReservation/byStatus/6`;
+      let url = `${API_BASE_URL}/api/RoomReservation/finalizedInvoices`;
       const params = new URLSearchParams();
       if (startDate) params.append('fromDate', startDate);
       if (endDate) params.append('toDate', endDate);
@@ -39,7 +48,12 @@ export default function Invoices() {
         url += `?${params.toString()}`;
       }
 
-      const res = await fetch(url);
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -47,52 +61,26 @@ export default function Invoices() {
 
       const data = await res.json();
       
-      console.log("🔍 DEBUG - Complete API response:", data);
-      
-      // Transform data - handle both cases (with and without InvoiceNo)
-      const invoiceData: InvoiceDto[] = data
-        .filter((reservation: any) => {
-          const isFinalized = reservation.reservationStatus === "Finalized" || reservation.statusId === 6;
-          return isFinalized;
-        })
-        .map((reservation: any) => {
-          // Convert reservation number R000001 to invoice number INV000001
-          const reservationNo = reservation.reservationNo;
-          let invoiceNo;
-          
-          if (reservationNo && reservationNo.startsWith('R')) {
-            // Convert R000001 to INV000001
-            invoiceNo = 'INV' + reservationNo.substring(1);
-          } else {
-            // Fallback: use reservation number as-is
-            invoiceNo = reservationNo || `INV-${reservation.reservationNo}`;
-          }
-          
-          const invoiceDate = reservation.invoicedate || 
-                            reservation.invoiceDate || 
-                            reservation.InvoiceDate ||
-                            reservation.reservationDate;
+      // Transform data if needed (should already be in correct format)
+      const invoiceData: InvoiceDto[] = data.map((invoice: any) => ({
+        invoiceNo: invoice.invoiceNo || invoice.InvoiceNo || "",
+        invoiceDate: invoice.invoiceDate || invoice.InvoiceDate || "",
+        reservationNo: invoice.reservationNo || invoice.ReservationNo || "",
+        customerName: invoice.customerName || invoice.CustomerName || invoice.customerCode || "",
+        customerCode: invoice.customerCode || invoice.CustomerCode || "",
+        totalAmount: invoice.totalAmount || invoice.TotalAmount || 0,
+        paidAmount: invoice.paidAmount || invoice.PaidAmount || 0,
+        dueAmount: invoice.dueAmount || invoice.DueAmount || 0,
+        status: invoice.status || invoice.Status || "Finalized",
+        createdBy: invoice.createdBy || invoice.CreatedBy || "System",
+        mobile: invoice.mobile || "",
+        email: invoice.email || "",
+        checkinDate: invoice.checkinDate || invoice.checkinDateTime || "",
+        checkoutDate: invoice.checkoutDate || invoice.checkoutDateTime || "",
+        roomNumber: invoice.roomNumber || invoice.roomCode || "",
+        roomType: invoice.roomType || "Standard"
+      }));
 
-          console.log("🔍 DEBUG - Invoice mapping:", {
-            reservationNo: reservationNo,
-            finalInvoiceNo: invoiceNo
-          });
-
-          return {
-            invoiceNo: invoiceNo, // This will be INV000001, INV000002, etc.
-            invoiceDate: invoiceDate,
-            reservationNo: reservation.reservationNo,
-            customerName: reservation.customer?.name || reservation.customerName || reservation.customerCode,
-            customerCode: reservation.customerCode,
-            totalAmount: reservation.grossAmount || 0,
-            paidAmount: reservation.paidAmount || 0,
-            dueAmount: reservation.dueAmount || 0,
-            status: reservation.reservationStatus || "Finalized",
-            createdBy: reservation.user || "System"
-          };
-        });
-
-      console.log("🔍 DEBUG - Final invoice data:", invoiceData);
       setInvoices(invoiceData);
       showSuccessToast(`Loaded ${invoiceData.length} invoices`);
 
@@ -112,6 +100,12 @@ export default function Invoices() {
     setEndDate(date);
   };
 
+  // Handle card click to show invoice details
+  const handleCardClick = (invoice: InvoiceDto) => {
+    setSelectedInvoice(invoice);
+    setShowInvoiceModal(true);
+  };
+
   const handleGenerateInvoicePDF = async (invoiceNo: string) => {
     try {
       setPdfLoading(invoiceNo);
@@ -123,19 +117,16 @@ export default function Invoices() {
         return;
       }
 
-      console.log("🔍 DEBUG - Generating PDF for invoice:", invoiceNo);
-      
       const cleanInvoiceNo = invoiceNo.trim();
       if (!cleanInvoiceNo) {
         showErrorToast("Invalid invoice number");
         return;
       }
 
-      const url = `http://localhost:50538/api/Report/FinalPaymentPDF?invoiceNo=${encodeURIComponent(cleanInvoiceNo)}`;
-      
-      console.log("🔍 DEBUG - PDF URL:", url);
+      const REPORT_API_URL = "http://localhost:50538";
+      const url = `${REPORT_API_URL}/api/Report/FinalPaymentPDF?invoiceNo=${encodeURIComponent(cleanInvoiceNo)}`;
 
-      // Open in new tab (matching RoomReservation modal style)
+      // Open in new tab
       const newTab = window.open("", "_blank");
       if (!newTab) {
         showErrorToast("Please allow popups for this site.");
@@ -150,8 +141,6 @@ export default function Invoices() {
           'Pragma': 'no-cache'
         },
       });
-      
-      console.log("🔍 DEBUG - PDF Response status:", response.status);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -209,6 +198,16 @@ export default function Invoices() {
     });
   };
 
+  // Format time for display
+  const formatTime = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
     <>
       <PageMeta
@@ -248,7 +247,7 @@ export default function Invoices() {
               Filter Invoices
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Start Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -385,7 +384,8 @@ export default function Invoices() {
                 {filteredInvoices.map((invoice) => (
                   <div
                     key={invoice.invoiceNo}
-                    className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all duration-200 hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-700"
+                    onClick={() => handleCardClick(invoice)}
+                    className="bg-white rounded-lg border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-700"
                   >
                     {/* Header */}
                     <div className="flex justify-between items-start mb-4">
@@ -394,7 +394,7 @@ export default function Invoices() {
                           {invoice.invoiceNo}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatDate(invoice.invoiceDate)}
+                          {formatDate(invoice.invoiceDate)} • {formatTime(invoice.invoiceDate)}
                         </p>
                       </div>
                       <span
@@ -413,13 +413,49 @@ export default function Invoices() {
                       <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                         {invoice.customerName}
                       </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        📱 {invoice.mobile || "N/A"}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        ✉️ {invoice.email || "N/A"}
+                      </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         📋 Reservation: {invoice.reservationNo}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Created by: {invoice.createdBy}
-                      </p>
                     </div>
+
+                    {/* Room & Dates (if available) */}
+                    {(invoice.checkinDate || invoice.roomNumber) && (
+                      <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                        {invoice.roomNumber && (
+                          <div className="flex items-center text-sm mb-3">
+                            <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            <span className="text-gray-600 dark:text-gray-400 mr-2">Room:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {invoice.roomNumber} ({invoice.roomType || "Standard"})
+                            </span>
+                          </div>
+                        )}
+                        {invoice.checkinDate && invoice.checkoutDate && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Check-in</p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {formatDate(invoice.checkinDate)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Check-out</p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {formatDate(invoice.checkoutDate)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Payment Info */}
                     <div className="mb-4">
@@ -443,30 +479,17 @@ export default function Invoices() {
                       </div>
                     </div>
 
-                    {/* Action Button */}
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <button
-                        onClick={() => handleGenerateInvoicePDF(invoice.invoiceNo)}
-                        disabled={pdfLoading === invoice.invoiceNo}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {pdfLoading === invoice.invoiceNo ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Opening...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            View Invoice PDF
-                          </>
-                        )}
-                      </button>
+                    {/* Created By */}
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Created by:</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {invoice.createdBy}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -492,7 +515,7 @@ export default function Invoices() {
                   <Button
                     onClick={fetchInvoices}
                     disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {loading ? "Loading..." : "Load Invoices"}
                   </Button>
@@ -516,7 +539,218 @@ export default function Invoices() {
         </div>
       </div>
 
-      {/* Add CSS for animations */}
+      {/* Invoice Details Modal - Matching Receipts modal style */}
+      {showInvoiceModal && selectedInvoice && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-4xl animate-fadeIn rounded-lg border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Invoice Details: {selectedInvoice.invoiceNo}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {selectedInvoice.customerName} • Reservation: {selectedInvoice.reservationNo}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInvoiceModal(false)}
+                className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {/* Summary Card */}
+              <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/30">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Amount</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      LKR {selectedInvoice.totalAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amount Paid</p>
+                    <p className="text-lg font-semibold text-green-600">
+                      LKR {selectedInvoice.paidAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amount Due</p>
+                    <p className="text-lg font-semibold text-red-600">
+                      LKR {selectedInvoice.dueAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Status</p>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      selectedInvoice.dueAmount === 0
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                    }`}>
+                      {selectedInvoice.dueAmount === 0 ? "Paid" : "Pending"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Invoice Details */}
+              <div className="space-y-6">
+                {/* Customer Information */}
+                <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Customer Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Customer Name</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.customerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Customer Code</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.customerCode}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Mobile</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.mobile || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Email</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.email || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reservation Details */}
+                <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Reservation Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Reservation Number</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.reservationNo}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Invoice Date</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(selectedInvoice.invoiceDate)}</p>
+                    </div>
+                    {selectedInvoice.roomNumber && (
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Room Number</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.roomNumber}</p>
+                      </div>
+                    )}
+                    {selectedInvoice.roomType && (
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Room Type</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedInvoice.roomType}</p>
+                      </div>
+                    )}
+                    {selectedInvoice.checkinDate && (
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Check-in Date</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(selectedInvoice.checkinDate)}</p>
+                      </div>
+                    )}
+                    {selectedInvoice.checkoutDate && (
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Check-out Date</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(selectedInvoice.checkoutDate)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment Breakdown */}
+                <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-600">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Payment Breakdown
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Total Amount:</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        LKR {selectedInvoice.totalAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Amount Paid:</span>
+                      <span className="font-semibold text-green-600">
+                        LKR {selectedInvoice.paidAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Amount Due:</span>
+                      <span className={`font-semibold ${selectedInvoice.dueAmount > 0 ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
+                        LKR {selectedInvoice.dueAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 rounded-b-lg border-t border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
+              <button
+                onClick={() => setShowInvoiceModal(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handleGenerateInvoicePDF(selectedInvoice.invoiceNo);
+                  setShowInvoiceModal(false);
+                }}
+                disabled={pdfLoading === selectedInvoice.invoiceNo}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pdfLoading === selectedInvoice.invoiceNo ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View Invoice PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add CSS for animations and scrollbar */}
       <style>{`
         @keyframes fadeIn {
           from {
@@ -531,6 +765,31 @@ export default function Invoices() {
 
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 3px;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #4a5568;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a0aec0;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #5a6678;
         }
       `}</style>
     </>

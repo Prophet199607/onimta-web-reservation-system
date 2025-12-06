@@ -925,78 +925,206 @@ const [otherStatusReceipts, setOtherStatusReceipts] = useState<string[]>([]);
   };
 
 
-  useEffect(() => {
-    console.log("🔍 DEBUG - Recalculating amounts...");
+  // useEffect(() => {
+  //   console.log("🔍 DEBUG - Recalculating amounts...");
 
-    let subTotal = 0;
-    let paidAmount = 0;
+  //   let subTotal = 0;
+  //   let paidAmount = 0;
 
-    if (location.state?.selectedReservation && isDataLoaded) {
-      // When loading from backend, use backend values DIRECTLY
-      const reservation = location.state.selectedReservation;
-      subTotal = reservation.subTotal || 0;
-      paidAmount = paymentRows.reduce((total, row) => {
-        return total + (parseFloat(row.paymentAmount) || 0);
-      }, 0);
+  //   if (location.state?.selectedReservation && isDataLoaded) {
+  //     // When loading from backend, use backend values DIRECTLY
+  //     const reservation = location.state.selectedReservation;
+  //     subTotal = reservation.subTotal || 0;
+  //     paidAmount = paymentRows.reduce((total, row) => {
+  //       return total + (parseFloat(row.paymentAmount) || 0);
+  //     }, 0);
 
-      console.log("🔍 DEBUG - Using backend amounts:", { subTotal, paidAmount });
-    } else {
-      // For new reservations, calculate from rows
-      const reservationTotal = reservationRows.reduce((total, row) => {
-        return total + (parseFloat(row.amount) || 0);
-      }, 0);
+  //     console.log("🔍 DEBUG - Using backend amounts:", { subTotal, paidAmount });
+  //   } else {
+  //     // For new reservations, calculate from rows
+  //     const reservationTotal = reservationRows.reduce((total, row) => {
+  //       return total + (parseFloat(row.amount) || 0);
+  //     }, 0);
 
-      const serviceTotal = serviceRows.reduce((total, row) => {
-        return total + (parseFloat(row.amount) || 0);
-      }, 0);
+  //     const serviceTotal = serviceRows.reduce((total, row) => {
+  //       return total + (parseFloat(row.amount) || 0);
+  //     }, 0);
 
-      subTotal = reservationTotal + serviceTotal;
+  //     subTotal = reservationTotal + serviceTotal;
 
-      // Calculate paid amount from payment rows
-      paidAmount = paymentRows.reduce((total, row) => {
-        return total + (parseFloat(row.paymentAmount) || 0);
-      }, 0);
+  //     // Calculate paid amount from payment rows
+  //     paidAmount = paymentRows.reduce((total, row) => {
+  //       return total + (parseFloat(row.paymentAmount) || 0);
+  //     }, 0);
 
-      console.log("🔍 DEBUG - Calculated amounts:", { subTotal, paidAmount });
-    }
+  //     console.log("🔍 DEBUG - Calculated amounts:", { subTotal, paidAmount });
+  //   }
 
-    // Discount logic
-    let discountAmount = calculatedAmounts.discountAmount;
+  //   // Discount logic
+  //   let discountAmount = calculatedAmounts.discountAmount;
 
-    if (calculatedAmounts.discountPercent > 0) {
-      discountAmount = subTotal * (calculatedAmounts.discountPercent / 100);
-    }
+  //   if (calculatedAmounts.discountPercent > 0) {
+  //     discountAmount = subTotal * (calculatedAmounts.discountPercent / 100);
+  //   }
 
-    const grossAmount = subTotal - discountAmount;
-    const dueAmount = Math.max(0, grossAmount - paidAmount);
+  //   const grossAmount = subTotal - discountAmount;
+  //   const dueAmount = Math.max(0, grossAmount - paidAmount);
 
-    console.log("🔍 DEBUG - Final amounts:", {
-      subTotal,
-      discountAmount,
-      grossAmount,
-      paidAmount,
-      dueAmount
-    });
+  //   console.log("🔍 DEBUG - Final amounts:", {
+  //     subTotal,
+  //     discountAmount,
+  //     grossAmount,
+  //     paidAmount,
+  //     dueAmount
+  //   });
 
-    setCalculatedAmounts((prev) => ({
-      ...prev,
-      subTotal,
-      discountAmount,
-      grossAmount,
-      paidAmount,
-      dueAmount,
-    }));
-  }, [
-    reservationRows,
-    serviceRows,
-    paymentRows,
-    calculatedAmounts.discountPercent,
-    calculatedAmounts.discountAmount,
-    location.state?.selectedReservation,
-    isDataLoaded
-  ]);
+  //   setCalculatedAmounts((prev) => ({
+  //     ...prev,
+  //     subTotal,
+  //     discountAmount,
+  //     grossAmount,
+  //     paidAmount,
+  //     dueAmount,
+  //   }));
+  // }, [
+  //   reservationRows,
+  //   serviceRows,
+  //   paymentRows,
+  //   calculatedAmounts.discountPercent,
+  //   calculatedAmounts.discountAmount,
+  //   location.state?.selectedReservation,
+  //   isDataLoaded
+  // ]);
 
   // Handle discount percentage change
+
+// Replace your existing useEffect for amount calculations with this:
+
+useEffect(() => {
+  console.log("🔍 DEBUG - Recalculating amounts...");
+  console.log("🔍 DEBUG - Reservation rows:", reservationRows);
+  console.log("🔍 DEBUG - Service rows:", serviceRows);
+  console.log("🔍 DEBUG - Payment rows:", paymentRows);
+
+  // Always calculate subTotal from current rows
+  const reservationTotal = reservationRows.reduce((total, row) => {
+    const amount = parseFloat(row.amount) || 0;
+    console.log(`🔍 DEBUG - Adding reservation amount: ${amount}`);
+    return total + amount;
+  }, 0);
+
+  const serviceTotal = serviceRows.reduce((total, row) => {
+    const amount = parseFloat(row.amount) || 0;
+    console.log(`🔍 DEBUG - Adding service amount: ${amount}`);
+    return total + amount;
+  }, 0);
+
+  const subTotal = reservationTotal + serviceTotal;
+  console.log(`🔍 DEBUG - SubTotal: ${reservationTotal} + ${serviceTotal} = ${subTotal}`);
+
+  // Always calculate paid amount from payment rows
+  const paidAmount = paymentRows.reduce((total, row) => {
+    const amount = parseFloat(row.paymentAmount) || 0;
+    console.log(`🔍 DEBUG - Adding payment amount: ${amount}`);
+    return total + amount;
+  }, 0);
+
+  console.log("🔍 DEBUG - Total paid amount:", paidAmount);
+
+  // Discount logic - use the current discount values
+  let discountAmount = 0;
+  const currentDiscountPercent = calculatedAmounts.discountPercent || 0;
+  const currentDiscountAmount = calculatedAmounts.discountAmount || 0;
+
+  if (currentDiscountPercent > 0) {
+    discountAmount = subTotal * (currentDiscountPercent / 100);
+  } else if (currentDiscountAmount > 0) {
+    discountAmount = currentDiscountAmount;
+  }
+
+  const grossAmount = subTotal - discountAmount;
+  const dueAmount = Math.max(0, grossAmount - paidAmount);
+
+  console.log("🔍 DEBUG - Final amounts:", {
+    subTotal,
+    discountAmount,
+    grossAmount,
+    paidAmount,
+    dueAmount
+  });
+
+  setCalculatedAmounts((prev) => ({
+    ...prev,
+    subTotal,
+    discountAmount,
+    grossAmount,
+    paidAmount,
+    dueAmount,
+  }));
+}, [
+  reservationRows,
+  serviceRows,
+  paymentRows,
+  calculatedAmounts.discountPercent,
+  calculatedAmounts.discountAmount,
+]);
+
+// Also update your handleAddService function to include better logging:
+
+// const handleAddService = () => {
+//   console.log("🔍 DEBUG - Adding service...");
+//   console.log("🔍 DEBUG - Current formData:", formData);
+  
+//   if (!formData.serviceCode) {
+//     showErrorToast("Please select a service");
+//     return;
+//   }
+
+//   const selectedService = serviceTypes.find(
+//     (s) => s.serviceCode === formData.serviceCode
+//   );
+  
+//   console.log("🔍 DEBUG - Selected service:", selectedService);
+
+//   // Use defaults for empty fields
+//   const serviceQty = formData.serviceQty || "1";
+//   const serviceAmount = formData.amount || (selectedService ? String(selectedService.serviceAmount) : "0");
+//   const serviceDate = formData.serviceDate || today;
+
+//   const calculatedAmount = (parseFloat(serviceAmount) * parseFloat(serviceQty));
+  
+//   console.log("🔍 DEBUG - Service calculation:", {
+//     serviceQty,
+//     serviceAmount,
+//     calculatedAmount
+//   });
+
+//   const newRow = {
+//     serviceName: selectedService ? selectedService.serviceName : "",
+//     rate: serviceAmount,
+//     quantity: serviceQty,
+//     amount: calculatedAmount.toString(),
+//     serviceDate: serviceDate,
+//   };
+
+//   console.log("🔍 DEBUG - New service row:", newRow);
+
+//   setServiceRows((prev) => {
+//     const updated = [...prev, newRow];
+//     console.log("🔍 DEBUG - Updated service rows:", updated);
+//     return updated;
+//   });
+
+//   // Reset dropdown + fields
+//   setFormData((prev) => ({
+//     ...prev,
+//     serviceCode: "",
+//     serviceQty: "",
+//     amount: "",
+//     serviceDate: today,
+//   }));
+// };
+
   const handleDiscountPercentChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
