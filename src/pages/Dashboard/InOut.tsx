@@ -11,6 +11,7 @@ import {
   TableCell,
 } from "../../components/ui/table";
 import { useNavigate } from "react-router-dom"; //add new navoda
+import axios from "axios";
 
 // Define StatusOption type
 interface StatusOption {
@@ -111,28 +112,34 @@ export default function InOut() {
 
 
 
-  // Fetch status options
-  useEffect(() => {
-    fetch("https://localhost:9307/api/ReservationStatus/getall")
-      .then((res) => res.json())
-      .then((data) => {
-        const formatted: StatusOption[] = data
-          .filter((status: any) => status.isShow)
-          .map((status: any) => ({
-            value: status.statusId,
-            label: status.statusName,
-            color: status.colorCode,
-          }));
-        setStatusOptions(formatted);
-      })
-      .catch((err) => console.error("Failed to fetch statuses:", err));
-  }, []);
+useEffect(() => {
+  const fetchStatuses = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/ReservationStatus/getall`);
+      const data = response.data;
+
+      const formatted: StatusOption[] = data
+        .filter((status: any) => status.isShow)
+        .map((status: any) => ({
+          value: status.statusId,
+          label: status.statusName,
+          color: status.colorCode,
+        }));
+
+      setStatusOptions(formatted);
+    } catch (err) {
+      console.error("Failed to fetch statuses:", err);
+    }
+  };
+
+  fetchStatuses();
+}, []);
 
   // Fetch reservations by status and date range
   const fetchReservationsByStatus = async (statusId: number, fromDate?: string, toDate?: string) => {
     setLoading(true);
     try {
-      let url = `https://localhost:9307/api/RoomReservation/byStatus/${statusId}`;
+      let url = `${API_BASE_URL}api/RoomReservation/byStatus/${statusId}`;
 
       // Add date range parameters if provided
       const params = new URLSearchParams();
