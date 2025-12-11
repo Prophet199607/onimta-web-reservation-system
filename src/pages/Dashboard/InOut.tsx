@@ -12,6 +12,7 @@ import {
 } from "../../components/ui/table";
 import { useNavigate } from "react-router-dom"; //add new navoda
 import axios from "axios";
+import { API_BASE_URL, REPORT_API_URL } from "../../config/api";
 
 // Define StatusOption type
 interface StatusOption {
@@ -396,8 +397,8 @@ const handleFetchData = () => {
     }
   };
 
-  const API_BASE_URL = "https://localhost:9307";
-  const REPORT_API_URL = "http://localhost:50538";
+  // const API_BASE_URL = "https://localhost:9307";
+  // const REPORT_API_URL = "http://localhost:50538";
 
   const fetchReceiptNumbers = async (reservationNo: string): Promise<string[]> => {
   try {
