@@ -3,7 +3,7 @@ import PageMeta from "../../components/common/PageMeta";
 import DatePicker from "../../components/form/date-picker";
 import Button from "../../components/ui/button/Button";
 import { showSuccessToast, showErrorToast } from "../../components/alert/ToastAlert";
-import API_BASE_URL from "../../config/api";
+import {API_BASE_URL, REPORT_API_URL} from "../../config/api";
 
 // Define interfaces
 interface InvoiceDto {
@@ -123,7 +123,7 @@ export default function Invoices() {
         return;
       }
 
-      const REPORT_API_URL = "http://localhost:50538";
+      // const REPORT_API_URL = "http://localhost:50538";
       const url = `${REPORT_API_URL}/api/Report/FinalPaymentPDF?invoiceNo=${encodeURIComponent(cleanInvoiceNo)}`;
 
       // Open in new tab

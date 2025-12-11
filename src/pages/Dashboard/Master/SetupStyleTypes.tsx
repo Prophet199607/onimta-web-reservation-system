@@ -3,7 +3,7 @@ import PageMeta from "../../../components/common/PageMeta";
 import Input from "../../../components/form/input/InputField";
 import Button from "../../../components/ui/button/Button";
 import DataTable, { Column } from "../../../components/tables/DataTable";
-import API_BASE_URL from "../../../config/api";
+import {API_BASE_URL} from "../../../config/api";
 import {
   showSuccessToast,
   showErrorToast,

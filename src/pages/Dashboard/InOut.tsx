@@ -139,7 +139,7 @@ useEffect(() => {
   const fetchReservationsByStatus = async (statusId: number, fromDate?: string, toDate?: string) => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}api/RoomReservation/byStatus/${statusId}`;
+      let url = `${API_BASE_URL}/api/RoomReservation/byStatus/${statusId}`;
 
       // Add date range parameters if provided
       const params = new URLSearchParams();
@@ -450,8 +450,16 @@ const fetchInvoiceNumber = async (reservationNo: string): Promise<string | null>
       return null;
     }
 
-    // This endpoint might need to be adjusted based on your API
-    const url = `${API_BASE_URL}/api/RoomReservation/getInvoiceByReservation/${encodeURIComponent(reservationNo.trim())}`;
+    // Option 1: Try to get it from the loaded reservation data
+    // const selectedReservation = reservations.find(r => r.reservationNo === reservationNo);
+    // if (selectedReservation?.invoiceNo) {
+    //   return selectedReservation.invoiceNo;
+    // }
+
+    // Option 2: Fetch invoices for the date range and find the specific one
+    // But first, let's check if we have a better API endpoint
+    // Based on your invoice page, the correct endpoint is:
+    const url = `${API_BASE_URL}/api/RoomReservation/finalizedInvoices`;
     
     const response = await fetch(url, {
       headers: {
@@ -462,7 +470,16 @@ const fetchInvoiceNumber = async (reservationNo: string): Promise<string | null>
 
     if (response.ok) {
       const data = await response.json();
-      return data.invoiceNo || null;
+      
+      // Find the invoice for this reservation
+      const invoiceData = data.find((invoice: any) => 
+        invoice.reservationNo === reservationNo || 
+        invoice.ReservationNo === reservationNo
+      );
+      
+      if (invoiceData) {
+        return invoiceData.invoiceNo || invoiceData.InvoiceNo || null;
+      }
     }
     
     return null;
@@ -471,6 +488,7 @@ const fetchInvoiceNumber = async (reservationNo: string): Promise<string | null>
     return null;
   }
 };
+
 
 const handleViewDetails = async () => {
   if (!selectedRow) {

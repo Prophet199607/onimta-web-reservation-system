@@ -3,7 +3,7 @@ import PageMeta from "../../components/common/PageMeta";
 import Select from "../../components/form/Select";
 import Button from "../../components/ui/button/Button";
 import DatePicker from "../../components/form/date-picker";
-import API_BASE_URL from "../../config/api";
+import {API_BASE_URL} from "../../config/api";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { showErrorToast, showSuccessToast } from "../../components/alert/ToastAlert";

@@ -5,7 +5,7 @@ import Button from "../../components/ui/button/Button";
 import Select from "../../components/form/Select";
 import Checkbox from "../../components/form/input/Checkbox";
 import DataTable, { Column } from "../../components/tables/DataTable";
-import API_BASE_URL from "../../config/api";
+import {API_BASE_URL} from "../../config/api";
 import {
   showSuccessToast,
   showErrorToast,

@@ -4,7 +4,7 @@ import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import API_BASE_URL from "../../config/api";
+import {API_BASE_URL} from "../../config/api";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);

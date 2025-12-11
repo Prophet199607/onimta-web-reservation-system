@@ -7,7 +7,8 @@ import DatePicker from "../../components/form/date-picker";
 import Checkbox from "../../components/form/input/Checkbox";
 import DataTable, { Column } from "../../components/tables/DataTable";
 import Modal from "../../components/modal/Modal";
-import API_BASE_URL from "../../config/api";
+import { API_BASE_URL } from "../../config/api";
+import { REPORT_API_URL } from "../../config/api";
 import axios from "axios";
 import {
   showSuccessToast,
@@ -180,7 +181,7 @@ export default function RoomReservation() {
     refundAmount: 0,
   });
 
-  const REPORT_API_URL = "http://localhost:50538";
+  // const REPORT_API_URL = "http://localhost:50538";
 
 
   const [checkInDate, setCheckInDate] = useState(today);
