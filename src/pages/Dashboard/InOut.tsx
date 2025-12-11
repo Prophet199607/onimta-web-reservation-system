@@ -113,28 +113,28 @@ export default function InOut() {
 
 
 
-useEffect(() => {
-  const fetchStatuses = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/ReservationStatus/getall`);
-      const data = response.data;
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/ReservationStatus/getall`);
+        const data = response.data;
 
-      const formatted: StatusOption[] = data
-        .filter((status: any) => status.isShow)
-        .map((status: any) => ({
-          value: status.statusId,
-          label: status.statusName,
-          color: status.colorCode,
-        }));
+        const formatted: StatusOption[] = data
+          .filter((status: any) => status.isShow)
+          .map((status: any) => ({
+            value: status.statusId,
+            label: status.statusName,
+            color: status.colorCode,
+          }));
 
-      setStatusOptions(formatted);
-    } catch (err) {
-      console.error("Failed to fetch statuses:", err);
-    }
-  };
+        setStatusOptions(formatted);
+      } catch (err) {
+        console.error("Failed to fetch statuses:", err);
+      }
+    };
 
-  fetchStatuses();
-}, []);
+    fetchStatuses();
+  }, []);
 
   // Fetch reservations by status and date range
   const fetchReservationsByStatus = async (statusId: number, fromDate?: string, toDate?: string) => {
@@ -310,41 +310,41 @@ useEffect(() => {
   };
 
   // Handle status change
-const handleStatusChange = (value: string) => {
-  const id = Number(value);
-  setSelectedStatus(id);
-  // Don't fetch here - let user set dates first
-};
+  const handleStatusChange = (value: string) => {
+    const id = Number(value);
+    setSelectedStatus(id);
+    // Don't fetch here - let user set dates first
+  };
 
   const handleStartDateChange = (date: string) => {
     setStartDate(date);
 
-   
+
   };
-const handleEndDateChange = (date: string) => {
-  setEndDate(date);
-  // Don't auto-fetch when changing dates
-};
+  const handleEndDateChange = (date: string) => {
+    setEndDate(date);
+    // Don't auto-fetch when changing dates
+  };
 
-// Add a new manual fetch function
-const handleFetchData = () => {
-  if (!selectedStatus) {
-    alert("Please select a status first");
-    return;
-  }
-  
-  if (!startDate || !endDate) {
-    alert("Please select both start and end dates");
-    return;
-  }
+  // Add a new manual fetch function
+  const handleFetchData = () => {
+    if (!selectedStatus) {
+      alert("Please select a status first");
+      return;
+    }
 
-  fetchReservationsByStatus(selectedStatus, startDate, endDate);
-};
+    if (!startDate || !endDate) {
+      alert("Please select both start and end dates");
+      return;
+    }
+
+    fetchReservationsByStatus(selectedStatus, startDate, endDate);
+  };
   const filteredReservations = reservations.filter(r =>
-  r.reservationNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  r.customerCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  r.mobile?.includes(searchTerm)
-);
+    r.reservationNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.customerCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.mobile?.includes(searchTerm)
+  );
 
 
 
@@ -400,166 +400,167 @@ const handleFetchData = () => {
   // const API_BASE_URL = "https://localhost:9307";
   // const REPORT_API_URL = "http://localhost:50538";
 
+
   const fetchReceiptNumbers = async (reservationNo: string): Promise<string[]> => {
-  try {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    
-    if (!reservationNo?.trim()) {
-      console.error("Empty reservation number provided");
-      return [];
-    }
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-    const url = `${REPORT_API_URL}/api/Report/GetReceiptsByReservation?reservationNo=${encodeURIComponent(reservationNo.trim())}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
+      if (!reservationNo?.trim()) {
+        console.error("Empty reservation number provided");
+        return [];
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch receipts: ${response.status}`);
-    }
+      const url = `${REPORT_API_URL}/api/Report/GetReceiptsByReservation?reservationNo=${encodeURIComponent(reservationNo.trim())}`;
 
-    const data = await response.json();
-    
-    if (!Array.isArray(data)) {
-      console.warn("Unexpected response format for receipts:", data);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch receipts: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        console.warn("Unexpected response format for receipts:", data);
+        return [];
+      }
+
+      // Filter out empty or invalid receipt numbers
+      const validReceipts = data.filter((receipt: any) =>
+        receipt && receipt.toString().trim() !== ''
+      );
+
+      return validReceipts;
+
+    } catch (error: any) {
+      console.error("Error fetching receipts:", error);
       return [];
     }
+  };
 
-    // Filter out empty or invalid receipt numbers
-    const validReceipts = data.filter((receipt: any) => 
-      receipt && receipt.toString().trim() !== ''
-    );
-    
-    return validReceipts;
+  const fetchInvoiceNumber = async (reservationNo: string): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-  } catch (error: any) {
-    console.error("Error fetching receipts:", error);
-    return [];
-  }
-};
+      if (!reservationNo?.trim()) {
+        return null;
+      }
 
-const fetchInvoiceNumber = async (reservationNo: string): Promise<string | null> => {
-  try {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    
-    if (!reservationNo?.trim()) {
+      // Option 1: Try to get it from the loaded reservation data
+      // const selectedReservation = reservations.find(r => r.reservationNo === reservationNo);
+      // if (selectedReservation?.invoiceNo) {
+      //   return selectedReservation.invoiceNo;
+      // }
+
+      // Option 2: Fetch invoices for the date range and find the specific one
+      // But first, let's check if we have a better API endpoint
+      // Based on your invoice page, the correct endpoint is:
+      const url = `${API_BASE_URL}/api/RoomReservation/finalizedInvoices`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Find the invoice for this reservation
+        const invoiceData = data.find((invoice: any) =>
+          invoice.reservationNo === reservationNo ||
+          invoice.ReservationNo === reservationNo
+        );
+
+        if (invoiceData) {
+          return invoiceData.invoiceNo || invoiceData.InvoiceNo || null;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
       return null;
     }
-
-    // Option 1: Try to get it from the loaded reservation data
-    // const selectedReservation = reservations.find(r => r.reservationNo === reservationNo);
-    // if (selectedReservation?.invoiceNo) {
-    //   return selectedReservation.invoiceNo;
-    // }
-
-    // Option 2: Fetch invoices for the date range and find the specific one
-    // But first, let's check if we have a better API endpoint
-    // Based on your invoice page, the correct endpoint is:
-    const url = `${API_BASE_URL}/api/RoomReservation/finalizedInvoices`;
-    
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      
-      // Find the invoice for this reservation
-      const invoiceData = data.find((invoice: any) => 
-        invoice.reservationNo === reservationNo || 
-        invoice.ReservationNo === reservationNo
-      );
-      
-      if (invoiceData) {
-        return invoiceData.invoiceNo || invoiceData.InvoiceNo || null;
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error("Error fetching invoice:", error);
-    return null;
-  }
-};
+  };
 
 
-const handleViewDetails = async () => {
-  if (!selectedRow) {
-    alert("Please select a reservation first");
-    return;
-  }
-
-  try {
-    // Fetch receipts and invoice for the selected reservation
-    const [receipts, invoiceNo] = await Promise.all([
-      fetchReceiptNumbers(selectedRow),
-      fetchInvoiceNumber(selectedRow)
-    ]);
-
-    setSelectedReservationReceipts(receipts);
-    setSelectedReservationInvoice(invoiceNo);
-    setSelectedReservationNo(selectedRow);
-    setShowReceiptModal(true);
-
-  } catch (error) {
-    console.error("Error loading reservation details:", error);
-    alert("Failed to load reservation details");
-  }
-};
-
-const handleGenerateReceiptPDF = async (receiptNo: string) => {
-  try {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    
-    if (!token) {
-      alert("Authentication token not found. Please login again.");
+  const handleViewDetails = async () => {
+    if (!selectedRow) {
+      alert("Please select a reservation first");
       return;
     }
 
-    const url = `${REPORT_API_URL}/api/Report/ReservationPaymentPDF?receiptNo=${encodeURIComponent(receiptNo)}`;
-    
-    // Open in new tab
-    const newTab = window.open(url, '_blank');
-    if (!newTab) {
-      alert("Please allow popups to view receipts");
-    }
-    
-  } catch (error: any) {
-    console.error("PDF Generation Error:", error);
-    alert("Failed to generate receipt PDF");
-  }
-};
+    try {
+      // Fetch receipts and invoice for the selected reservation
+      const [receipts, invoiceNo] = await Promise.all([
+        fetchReceiptNumbers(selectedRow),
+        fetchInvoiceNumber(selectedRow)
+      ]);
 
-const handleGenerateInvoicePDF = async (invoiceNo: string) => {
-  try {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    
-    if (!token) {
-      alert("Authentication token not found. Please login again.");
-      return;
-    }
+      setSelectedReservationReceipts(receipts);
+      setSelectedReservationInvoice(invoiceNo);
+      setSelectedReservationNo(selectedRow);
+      setShowReceiptModal(true);
 
-    const url = `${REPORT_API_URL}/api/Report/FinalPaymentPDF?invoiceNo=${encodeURIComponent(invoiceNo)}`;
-    
-    // Open in new tab
-    const newTab = window.open(url, '_blank');
-    if (!newTab) {
-      alert("Please allow popups to view invoice");
+    } catch (error) {
+      console.error("Error loading reservation details:", error);
+      alert("Failed to load reservation details");
     }
-    
-  } catch (error: any) {
-    console.error("PDF Generation Error:", error);
-    alert("Failed to generate invoice PDF");
-  }
-};
+  };
+
+  const handleGenerateReceiptPDF = async (receiptNo: string) => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+      if (!token) {
+        alert("Authentication token not found. Please login again.");
+        return;
+      }
+
+      const url = `${REPORT_API_URL}/api/Report/ReservationPaymentPDF?receiptNo=${encodeURIComponent(receiptNo)}`;
+
+      // Open in new tab
+      const newTab = window.open(url, '_blank');
+      if (!newTab) {
+        alert("Please allow popups to view receipts");
+      }
+
+    } catch (error: any) {
+      console.error("PDF Generation Error:", error);
+      alert("Failed to generate receipt PDF");
+    }
+  };
+
+  const handleGenerateInvoicePDF = async (invoiceNo: string) => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+      if (!token) {
+        alert("Authentication token not found. Please login again.");
+        return;
+      }
+
+      const url = `${REPORT_API_URL}/api/Report/FinalPaymentPDF?invoiceNo=${encodeURIComponent(invoiceNo)}`;
+
+      // Open in new tab
+      const newTab = window.open(url, '_blank');
+      if (!newTab) {
+        alert("Please allow popups to view invoice");
+      }
+
+    } catch (error: any) {
+      console.error("PDF Generation Error:", error);
+      alert("Failed to generate invoice PDF");
+    }
+  };
 
   return (
     <>
@@ -633,13 +634,13 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
             {/* Action Buttons */}
             <div className="bg-gray-50 p-4 rounded-lg flex flex-col justify-center">
               <div className="space-y-3">
-               <Button
-  onClick={handleFetchData}
-  disabled={!selectedStatus || !startDate || !endDate || loading}
-  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
->
-  {loading ? "Loading..." : "Load Data"}
-</Button>
+                <Button
+                  onClick={handleFetchData}
+                  disabled={!selectedStatus || !startDate || !endDate || loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {loading ? "Loading..." : "Load Data"}
+                </Button>
                 <Button
                   onClick={handleViewData}
                   disabled={reservations.length === 0}
@@ -746,44 +747,44 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
             <div className="border rounded-lg px-6 py-4 border-b flex justify-between items-center bg-gray-50">
               <h2 className="text-xl font-semibold text-gray-800 items-center">Reservation Details</h2>
 
-<div className="pl-0 pr-250 py-2.5">   
-<div className="relative w-full max-w-sm justify-between ">
-  {/* Search Icon */}
-  <svg
-    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    />
-  </svg>
+              <div className="pl-0 pr-250 py-2.5">
+                <div className="relative w-full max-w-sm justify-between ">
+                  {/* Search Icon */}
+                  <svg
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
 
-  {/* Input Field */}
-  <input
-    type="text"
-    placeholder="Reeservation No..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className=" pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-  />
-</div>
-  {/* Clear Button (appears when there's text) */}
-  {searchTerm && (
-    <button
-      onClick={() => setSearchTerm('')}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-  )}
-</div>
+                  {/* Input Field */}
+                  <input
+                    type="text"
+                    placeholder="Reeservation No..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className=" pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                {/* Clear Button (appears when there's text) */}
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
 
 
               <button
@@ -855,7 +856,7 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
                       </TableHeader>
 
                       <TableBody>
-                       {filteredReservations.map((reservation) => (
+                        {filteredReservations.map((reservation) => (
                           <tr
                             key={reservation.reservationNo}
                             onClick={() => setSelectedRow(reservation.reservationNo)}
@@ -916,17 +917,16 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
 
               {/* RIGHT SIDE - Buttons */}
               <div className="flex gap-5">
-          <button
-  onClick={handleViewDetails}
-  disabled={!selectedRow}
-  className={`px-5 py-2 rounded-lg ${
-    selectedRow
-      ? "bg-blue-600 hover:bg-blue-700 text-white"
-      : "bg-gray-400 text-gray-200 cursor-not-allowed"
-  }`}
->
-  View Receipts
-</button>
+                <button
+                  onClick={handleViewDetails}
+                  disabled={!selectedRow}
+                  className={`px-5 py-2 rounded-lg ${selectedRow
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-gray-400 text-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  View Receipts
+                </button>
                 <button
                   onClick={handleAddToReservation}
                   disabled={!selectedRow}
@@ -957,136 +957,136 @@ const handleGenerateInvoicePDF = async (invoiceNo: string) => {
       )}
 
       {/* Receipts and Invoices Modal */}
-{showReceiptModal && (
-  <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div className="relative w-full max-w-2xl animate-fadeIn rounded-lg border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
-      {/* Modal Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
-            <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Reservation Documents
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {selectedReservationNo}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowReceiptModal(false)}
-          className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Modal Body */}
-      <div className="space-y-6 p-6">
-        {/* Receipts Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Payment Receipts
-            </h4>
-            <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              {selectedReservationReceipts.length} Receipt{selectedReservationReceipts.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-          
-          {selectedReservationReceipts.length > 0 ? (
-            <div className="custom-scrollbar max-h-64 space-y-2 overflow-y-auto">
-              {selectedReservationReceipts.map((receipt, index) => (
-                <button
-                  key={receipt}
-                  onClick={() => handleGenerateReceiptPDF(receipt)}
-                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 transition-all hover:border-blue-300 hover:bg-blue-50 group dark:border-gray-600 dark:bg-gray-700/50 dark:hover:border-blue-700 dark:hover:bg-blue-900/30"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 transition-colors group-hover:bg-blue-200 dark:bg-blue-900/30 dark:group-hover:bg-blue-800/50">
-                      <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        Receipt #{index + 1}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {receipt}
-                      </p>
-                    </div>
-                  </div>
-                  <svg className="h-5 w-5 text-gray-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-600 dark:bg-gray-700/50">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No receipts available</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">No payment receipts found for this reservation</p>
-            </div>
-          )}
-        </div>
-
-        {/* Invoice Section */}
-        {selectedReservationInvoice && (
-          <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
-            <h4 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Final Invoice
-            </h4>
-            <button
-              onClick={() => handleGenerateInvoicePDF(selectedReservationInvoice)}
-              className="flex w-full items-center justify-between rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-4 transition-all hover:from-purple-100 hover:to-pink-100 group dark:border-purple-800 dark:from-purple-900/20 dark:to-pink-900/20 dark:hover:from-purple-900/30 dark:hover:to-pink-900/30"
-            >
+      {showReceiptModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl animate-fadeIn rounded-lg border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 transition-colors group-hover:bg-purple-200 dark:bg-purple-900/30 dark:group-hover:bg-purple-800/50">
-                  <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    View Final Invoice
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Invoice: {selectedReservationInvoice}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Reservation Documents
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {selectedReservationNo}
                   </p>
                 </div>
               </div>
-              <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </button>
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-6 p-6">
+              {/* Receipts Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Payment Receipts
+                  </h4>
+                  <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    {selectedReservationReceipts.length} Receipt{selectedReservationReceipts.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {selectedReservationReceipts.length > 0 ? (
+                  <div className="custom-scrollbar max-h-64 space-y-2 overflow-y-auto">
+                    {selectedReservationReceipts.map((receipt, index) => (
+                      <button
+                        key={receipt}
+                        onClick={() => handleGenerateReceiptPDF(receipt)}
+                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 transition-all hover:border-blue-300 hover:bg-blue-50 group dark:border-gray-600 dark:bg-gray-700/50 dark:hover:border-blue-700 dark:hover:bg-blue-900/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 transition-colors group-hover:bg-blue-200 dark:bg-blue-900/30 dark:group-hover:bg-blue-800/50">
+                            <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              Receipt #{index + 1}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {receipt}
+                            </p>
+                          </div>
+                        </div>
+                        <svg className="h-5 w-5 text-gray-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-600 dark:bg-gray-700/50">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No receipts available</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No payment receipts found for this reservation</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Invoice Section */}
+              {selectedReservationInvoice && (
+                <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+                  <h4 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Final Invoice
+                  </h4>
+                  <button
+                    onClick={() => handleGenerateInvoicePDF(selectedReservationInvoice)}
+                    className="flex w-full items-center justify-between rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-4 transition-all hover:from-purple-100 hover:to-pink-100 group dark:border-purple-800 dark:from-purple-900/20 dark:to-pink-900/20 dark:hover:from-purple-900/30 dark:hover:to-pink-900/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 transition-colors group-hover:bg-purple-200 dark:bg-purple-900/30 dark:group-hover:bg-purple-800/50">
+                        <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          View Final Invoice
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Invoice: {selectedReservationInvoice}
+                        </p>
+                      </div>
+                    </div>
+                    <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 rounded-b-lg border-t border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Modal Footer */}
-      <div className="flex justify-end gap-3 rounded-b-lg border-t border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
-        <button
-          onClick={() => setShowReceiptModal(false)}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-<style>{`
+      <style>{`
   @keyframes fadeIn {
     from {
       opacity: 0;
