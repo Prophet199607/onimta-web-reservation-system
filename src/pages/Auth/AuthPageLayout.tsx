@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
 
 const authImages = [
-  "/images/auth/auth-bg-1.jpg",
-  "/images/auth/auth-bg-2.jpg",
-  "/images/auth/auth-bg-3.jpg",
-  "/images/auth/auth-bg-4.jpg",
+  "/images/Hotel-Royal-Ramesses/Ramesses1.png",
+  "/images/Hotel-Royal-Ramesses/Ramesses2.png",
+  "/images/Hotel-Royal-Ramesses/Ramesses3.png",
+  "/images/Hotel-Royal-Ramesses/Ramesses4.png",
 ];
 
 export default function AuthLayout({
